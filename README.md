@@ -1,164 +1,182 @@
-# Git 同步 Obsidian 插件
+# Git Sync Obsidian Plugin
 
-一个支持与 GitHub 仓库同步的 Obsidian 插件，使用 React 构建用户界面，支持热重载开发。
+An Obsidian plugin that supports synchronization with GitHub repositories, built with a modern interface and hot reload development support.
 
-## 功能特性
+## Features
 
-- 🔄 **双向同步**: 支持将笔记同步到 GitHub 或从 GitHub 拉取笔记
-- 🎯 **单文件操作**: 可以单独同步当前编辑的文件
-- 📁 **批量操作**: 支持整个 Vault 的批量同步
-- 🔧 **可视化配置**: 使用 React 构建的现代化配置界面
-- 🚀 **热重载开发**: 支持开发时的热重载
-- 📂 **递归文件夹**: 完整支持文件夹结构的递归同步
+- 🔄 **Bidirectional Sync**: Support syncing notes to GitHub or pulling notes from GitHub
+- 🎯 **Single File Operations**: Sync individual files currently being edited
+- 📁 **Batch Operations**: Support batch synchronization of entire Vault
+- 🔧 **Visual Configuration**: Modern configuration interface with intuitive controls
+- 🚀 **Hot Reload Development**: Support for hot reload during development
+- 📂 **Recursive Folders**: Complete support for recursive synchronization of folder structures
+- 🌍 **Internationalization**: Support for Chinese and English languages
+- 💾 **Smart Caching**: File status caching to reduce GitHub API calls
+- 📊 **Real-time Status**: Status bar showing file sync status and last modified time
 
-## 安装
+## Installation
 
-### 手动安装
+### Manual Installation
 
-1. 下载最新的 release 文件
-2. 将文件解压到你的 Obsidian 插件目录：`{vault}/.obsidian/plugins/git-sync/`
-3. 重启 Obsidian
-4. 在设置中启用"Git Sync"插件
+1. Download the latest release files
+2. Extract files to your Obsidian plugins directory: `{vault}/.obsidian/plugins/git-sync/`
+3. Restart Obsidian
+4. Enable the "Git Sync" plugin in settings
 
-### 开发安装
+### Development Installation
 
-1. 克隆此仓库到你的插件目录：
+1. Clone this repository to your plugins directory:
 
    ```bash
    cd {vault}/.obsidian/plugins/
-   git clone https://github.com/你的用户名/obsidian-git-sync git-sync
+   git clone https://github.com/yourusername/obsidian-git-sync git-sync
    cd git-sync
    ```
 
-2. 安装依赖：
+2. Install dependencies:
 
    ```bash
    npm install
    ```
 
-3. 开发模式（支持热重载）：
+3. Development mode (with hot reload):
 
    ```bash
    npm run dev
    ```
 
-4. 构建生产版本：
+4. Build production version:
    ```bash
    npm run build
    ```
 
-## 配置
+## Configuration
 
 ### 1. GitHub Personal Access Token
 
-首先需要创建一个 GitHub Personal Access Token：
+First, create a GitHub Personal Access Token:
 
-1. 访问 [GitHub Settings > Developer settings > Personal access tokens](https://github.com/settings/tokens)
-2. 点击"Generate new token (classic)"
-3. 选择以下权限：
-   - `repo` (完整的仓库访问权限)
-4. 复制生成的 token
+1. Visit [GitHub Settings > Developer settings > Personal access tokens](https://github.com/settings/tokens)
+2. Click "Generate new token (classic)"
+3. Select the following permissions:
+   - `repo` (Full repository access)
+4. Copy the generated token
 
-### 2. 仓库路径配置
+### 2. Repository Path Configuration
 
-仓库路径格式：`@https://github.com/用户名/仓库名/路径/到/文件夹`
+Repository path formats:
 
-示例：
+- `https://github.com/username/repo/path/to/folder` (Standard GitHub URL)
+- `username/repo/path/to/folder` (Short format)
 
-- `@https://github.com/Xheldon/git-sync/data/_post`
-- `@https://github.com/username/notes/obsidian-vault`
+Examples:
 
-## 使用方法
+- `https://github.com/Xheldon/git-sync/data/_post`
+- `username/notes/obsidian-vault`
 
-### 编辑器按钮
+## Usage
 
-点击左侧边栏的设置图标打开配置界面。
+### Settings Interface
 
-### 笔记同步菜单
+Click the settings icon in the left sidebar to open the configuration interface, or access it through Obsidian's plugin settings.
 
-在编辑笔记时，可以通过以下方式访问同步菜单：
+### Note Sync Menu
 
-1. 使用命令面板：`Ctrl/Cmd + P` → 搜索"显示同步菜单"
-2. 右键点击编辑器 → 选择"Git 同步"
+While editing notes, you can access the sync menu through:
 
-菜单选项：
+1. Command palette: `Ctrl/Cmd + P` → Search for "Show Sync Menu"
+2. Right-click in editor → Select "Git Sync"
+3. Status bar sync button (bottom right)
 
-- **同步当前文件到远端**: 将当前文件上传到 GitHub
-- **拉取远端覆盖当前文件**: 从 GitHub 下载文件覆盖本地
+Menu options:
 
-### 配置界面功能
+- **Sync current file to remote**: Upload current file to GitHub
+- **Pull remote to current file**: Download file from GitHub to overwrite local
 
-#### 基本设置
+### Configuration Interface Features
 
-- **GitHub Personal Token**: 输入你的访问令牌
-- **GitHub 仓库路径**: 配置目标仓库和路径
+#### Basic Settings
 
-#### 批量操作
+- **Interface Language**: Choose between Chinese, English, or follow Obsidian
+- **GitHub Personal Token**: Enter your access token
+- **GitHub Repository Path**: Configure target repository and path
+- **Show Ribbon Icon**: Toggle sidebar button visibility
 
-- **初始化仓库**: 当 Vault 为空时，从远端下载所有文件
-- **强制同步远端到本地**: 将远端文件同步到本地（会覆盖同名文件）
-- **强制同步本地到远端**: 将本地文件同步到远端
+#### Batch Operations (Danger Zone)
 
-## 开发
+- **Initialize Repository**: Download all files from remote when Vault is empty
+- **Force Sync Remote to Local**: Sync remote files to local (overwrites same-name files)
+- **Force Sync Local to Remote**: Sync local files to remote
+- **Clear File Cache**: Clear all cached file status data
 
-### 项目结构
+#### Sponsor
+
+- **Support Development**: Links to sponsor the project development
+
+## Development
+
+### Project Structure
 
 ```
-├── main.ts              # 插件主文件
-├── types.ts             # 类型定义
-├── github-service.ts    # GitHub API服务
-├── settings-modal.tsx   # React配置界面
-├── styles.css          # 样式文件
-├── manifest.json       # 插件清单
-├── package.json        # 项目配置
-├── tsconfig.json       # TypeScript配置
-├── esbuild.config.mjs  # 构建配置
-└── version-bump.mjs    # 版本管理脚本
+├── main.ts              # Main plugin file
+├── types.ts             # Type definitions
+├── github-service.ts    # GitHub API service
+├── file-cache.ts        # File caching service
+├── i18n-simple.ts       # Internationalization system
+├── styles.css          # Stylesheet
+├── manifest.json       # Plugin manifest
+├── package.json        # Project configuration
+├── tsconfig.json       # TypeScript configuration
+├── esbuild.config.mjs  # Build configuration
+└── version-bump.mjs    # Version management script
 ```
 
-### 开发命令
+### Development Commands
 
 ```bash
-# 安装依赖
+# Install dependencies
 npm install
 
-# 开发模式（热重载）
+# Development mode (hot reload)
 npm run dev
 
-# 构建生产版本
+# Build production version
 npm run build
 
-# 版本管理
+# Version management
 npm run version
 ```
 
-## 技术栈
+## Tech Stack
 
-- **TypeScript**: 主要开发语言
-- **React**: 用户界面框架
-- **Obsidian API**: 插件核心 API
-- **GitHub API**: 通过@octokit/rest 进行仓库操作
-- **esbuild**: 快速构建工具
+- **TypeScript**: Primary development language
+- **Obsidian API**: Core plugin API
+- **GitHub API**: Repository operations via @octokit/rest
+- **esbuild**: Fast build tool
+- **i18n**: Custom internationalization system
 
-## 注意事项
+## Important Notes
 
-1. **权限要求**: 需要 GitHub 仓库的写入权限
-2. **文件冲突**: 强制同步会覆盖现有文件，请谨慎使用
-3. **网络要求**: 需要稳定的网络连接访问 GitHub API
-4. **Token 安全**: 请妥善保管你的 GitHub Personal Access Token
+1. **Permission Requirements**: Requires write access to GitHub repository
+2. **File Conflicts**: Force sync will overwrite existing files, use with caution
+3. **Network Requirements**: Requires stable network connection to access GitHub API
+4. **Token Security**: Keep your GitHub Personal Access Token secure
+5. **Rate Limits**: GitHub API has rate limits (5000 requests/hour for authenticated users)
 
-## 贡献
+## Contributing
 
-欢迎提交 Issue 和 Pull Request！
+Issues and Pull Requests are welcome!
 
-## 赞助
+## Sponsor
 
-如果这个插件对你有帮助，欢迎请我喝杯咖啡 ☕
+If this plugin helps you, consider buying me a coffee ☕
 
-[![PayPal](https://img.shields.io/badge/PayPal-支持赞助-blue?style=for-the-badge&logo=paypal)](https://paypal.me/xheldoncao)
+[![PayPal](https://img.shields.io/badge/PayPal-Sponsor-blue?style=for-the-badge&logo=paypal)](https://paypal.me/xheldoncao)
 
-你的支持是我继续开发和维护这个项目的动力！
+For users in mainland China: [https://www.xheldon.com/donate/](https://www.xheldon.com/donate/)
 
-## 许可证
+Your support motivates me to continue developing and maintaining this project!
+
+## License
 
 MIT License
