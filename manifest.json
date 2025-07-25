@@ -1,0 +1,11 @@
+{
+    "id": "git-sync",
+    "name": "Git Sync",
+    "version": "1.0.0",
+    "minAppVersion": "0.15.0",
+    "description": "Synchronize files in your Obsidian Vault with a specified directory in the designated GitHub repository (rather than the entire repository).",
+    "author": "Xheldon",
+    "authorUrl": "https://github.com/Xheldon",
+    "fundingUrl": "https://paypal.me/xheldoncao",
+    "isDesktopOnly": false
+}
