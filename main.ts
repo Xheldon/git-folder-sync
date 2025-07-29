@@ -1,8 +1,9 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, Menu, TFolder } from 'obsidian';
-import { GitSyncSettings, DEFAULT_SETTINGS, SyncResult } from './types';
+import { GitSyncSettings, DEFAULT_SETTINGS, SyncResult, CosConfig, ImagePasteContext } from './types';
 import { GitHubService } from './github-service';
 import { setLanguage, t, getSupportedLanguages, getActualLanguage } from './i18n-simple';
 import { FileCacheService } from './file-cache';
+import { CosService, parseImagePath } from './cos-service';
 
 export default class GitSyncPlugin extends Plugin {
 	settings: GitSyncSettings;
@@ -57,6 +58,9 @@ export default class GitSyncPlugin extends Plugin {
 				}
 			})
 		);
+
+		// Listen for paste events to handle image uploads
+		this.registerDomEvent(document, 'paste', this.handlePasteEvent.bind(this));
 
 		// Add sync button to note editing interface
 		this.addCommand({
@@ -354,8 +358,25 @@ export default class GitSyncPlugin extends Plugin {
 		const allFiles = this.app.vault.getFiles();
 		console.log('All files in vault:', allFiles.map(f => f.path));
 		
-		// Filter out files in .obsidian folder
-		const filteredFiles = allFiles.filter(file => !file.path.startsWith('.obsidian'));
+		// Filter out files in .obsidian folder and local image path (if configured)
+		const filteredFiles = allFiles.filter(file => {
+			// Always exclude .obsidian folder
+			if (file.path.startsWith('.obsidian')) {
+				return false;
+			}
+			
+			// Exclude local image path if keepLocalImages is enabled and localImagePath is set
+			if (this.settings.keepLocalImages && this.settings.localImagePath) {
+				const normalizedImagePath = this.settings.localImagePath.replace(/^\/+|\/+$/g, ''); // Remove leading/trailing slashes
+				if (normalizedImagePath && file.path.startsWith(normalizedImagePath + '/')) {
+					console.log(`Excluding file from sync (in image directory): ${file.path}`);
+					return false;
+				}
+			}
+			
+			return true;
+		});
+		
 		console.log('Filtered files:', filteredFiles.map(f => f.path));
 		
 		return filteredFiles;
@@ -633,6 +654,174 @@ export default class GitSyncPlugin extends Plugin {
 			return date.toLocaleDateString('zh-CN');
 		}
 	}
+
+	/**
+	 * Handle paste events for image upload
+	 */
+	async handlePasteEvent(event: ClipboardEvent): Promise<void> {
+		// Only handle paste events in markdown editor
+		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!activeView || !this.currentFile) {
+			return;
+		}
+
+		// Check if clipboard contains files
+		const clipboardData = event.clipboardData;
+		if (!clipboardData || !clipboardData.files || clipboardData.files.length === 0) {
+			return;
+		}
+
+		// Check if COS is configured
+		if (!this.isCosConfigured()) {
+			return;
+		}
+
+		// Process each file in clipboard
+		for (let i = 0; i < clipboardData.files.length; i++) {
+			const file = clipboardData.files[i];
+			
+			// Only handle image files
+			if (!file.type.startsWith('image/')) {
+				continue;
+			}
+
+			// Prevent default paste behavior for images
+			event.preventDefault();
+
+			try {
+				await this.handleImageUpload(file, activeView.editor);
+			} catch (error) {
+				console.error('Error handling image upload:', error);
+				new Notice(t('cos.upload.failed', { error: error.message }));
+			}
+		}
+	}
+
+	/**
+	 * Check if COS is properly configured
+	 */
+	private isCosConfigured(): boolean {
+		const requiredFields = [
+			this.settings.cosSecretId,
+			this.settings.cosSecretKey,
+			this.settings.cosBucket,
+			this.settings.cosRegion // Region is required for all providers
+		];
+
+		// Add provider-specific required fields
+		if (this.settings.cosProvider === 'cloudflare') {
+			requiredFields.push(this.settings.cosEndpoint); // Endpoint only required for Cloudflare R2
+		}
+
+		return requiredFields.every(field => field && field.trim().length > 0);
+	}
+
+	/**
+	 * Handle single image upload
+	 */
+	private async handleImageUpload(file: File, editor: Editor): Promise<void> {
+		// Generate unique filename
+		const timestamp = Date.now();
+		const extension = file.name.split('.').pop() || 'png';
+		const fileName = `image-${timestamp}.${extension}`;
+
+		// Parse upload path
+		const remotePath = parseImagePath(this.settings.imageUploadPath, {
+			currentFilePath: this.currentFile!.path,
+			fileName: fileName
+		});
+
+		// Create placeholder text
+		const placeholder = t('cos.paste.placeholder', { filename: fileName });
+		const cursorPos = editor.getCursor();
+		
+		// Insert placeholder at cursor position
+		editor.replaceRange(placeholder, cursorPos);
+		
+		// Show upload notification
+		const uploadNotice = new Notice(t('cos.upload.uploading'), 0);
+
+		try {
+			// Create COS configuration
+			const cosConfig: CosConfig = {
+				provider: this.settings.cosProvider,
+				secretId: this.settings.cosSecretId,
+				secretKey: this.settings.cosSecretKey,
+				bucket: this.settings.cosBucket,
+				endpoint: this.settings.cosEndpoint,
+				cdnUrl: this.settings.cosCdnUrl,
+				region: this.settings.cosRegion
+			};
+
+			// Upload to COS
+			const cosService = new CosService(cosConfig);
+			const uploadResult = await cosService.uploadFile(file, remotePath);
+
+			if (uploadResult.success && uploadResult.url) {
+				// Replace placeholder with actual image link
+				const imageMarkdown = `![${fileName}](${uploadResult.url})`;
+				const currentContent = editor.getValue();
+				const updatedContent = currentContent.replace(placeholder, imageMarkdown);
+				editor.setValue(updatedContent);
+
+				// Save local copy if enabled
+				if (this.settings.keepLocalImages && this.settings.localImagePath) {
+					await this.saveLocalImageCopy(file, fileName);
+				}
+
+				// Hide upload notification and show success
+				uploadNotice.hide();
+				new Notice(t('cos.upload.success'));
+
+				console.log('Image uploaded successfully:', uploadResult.url);
+			} else {
+				throw new Error(uploadResult.message || 'Upload failed');
+			}
+		} catch (error) {
+			// Remove placeholder on error
+			const currentContent = editor.getValue();
+			const updatedContent = currentContent.replace(placeholder, '');
+			editor.setValue(updatedContent);
+
+			// Hide upload notification and show error
+			uploadNotice.hide();
+			new Notice(t('cos.upload.failed', { error: error.message }));
+			
+			console.error('Image upload failed:', error);
+		}
+	}
+
+	/**
+	 * Save image copy locally if enabled
+	 */
+	private async saveLocalImageCopy(file: File, fileName: string): Promise<void> {
+		try {
+			const localPath = parseImagePath(this.settings.localImagePath, {
+				currentFilePath: this.currentFile!.path,
+				fileName: fileName
+			});
+
+			// Create directory if it doesn't exist
+			const dirPath = localPath.substring(0, localPath.lastIndexOf('/'));
+			if (dirPath) {
+				try {
+					await this.app.vault.createFolder(dirPath);
+				} catch (error) {
+					// Folder might already exist, ignore error
+				}
+			}
+
+			// Convert File to ArrayBuffer
+			const arrayBuffer = await file.arrayBuffer();
+			
+			// Save file to vault
+			await this.app.vault.createBinary(localPath, arrayBuffer);
+			
+			console.log('Local image copy saved:', localPath);
+		} catch (error) {
+			console.warn('Failed to save local image copy:', error);
+		}
+	}
 }
 
 class GitSyncSettingTab extends PluginSettingTab {
@@ -730,6 +919,201 @@ class GitSyncSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.showRibbonIcon = value;
 					await this.plugin.saveSettings();
+				}));
+
+		// COS settings section
+		containerEl.createEl('h2', { 
+			text: t('settings.cos.section.title'),
+			cls: 'git-sync-section-title' 
+		});
+
+		// Cloud storage provider
+		new Setting(containerEl)
+			.setName(t('settings.cos.provider.name'))
+			.setDesc(t('settings.cos.provider.desc'))
+			.addDropdown(dropdown => {
+				dropdown.addOption('aliyun', t('settings.cos.provider.aliyun'));
+				dropdown.addOption('tencent', t('settings.cos.provider.tencent'));
+				dropdown.addOption('aws', t('settings.cos.provider.aws'));
+				dropdown.addOption('cloudflare', t('settings.cos.provider.cloudflare'));
+				
+				dropdown.setValue(this.plugin.settings.cosProvider);
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.cosProvider = value as 'aliyun' | 'tencent' | 'aws' | 'cloudflare';
+					await this.plugin.saveSettings();
+					// Re-render settings to show/hide region field
+					this.display();
+				});
+			});
+
+		// Secret ID
+		new Setting(containerEl)
+			.setName(t('settings.cos.secret.id.name') + ' *')
+			.setDesc(t('settings.cos.secret.id.desc'))
+			.addText(text => text
+				.setPlaceholder(t('settings.cos.secret.id.placeholder'))
+				.setValue(this.plugin.settings.cosSecretId)
+				.onChange(async (value) => {
+					this.plugin.settings.cosSecretId = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Secret Key
+		new Setting(containerEl)
+			.setName(t('settings.cos.secret.key.name') + ' *')
+			.setDesc(t('settings.cos.secret.key.desc'))
+			.addText(text => text
+				.setPlaceholder(t('settings.cos.secret.key.placeholder'))
+				.setValue(this.plugin.settings.cosSecretKey)
+				.onChange(async (value) => {
+					this.plugin.settings.cosSecretKey = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Bucket
+		new Setting(containerEl)
+			.setName(t('settings.cos.bucket.name') + ' *')
+			.setDesc(t('settings.cos.bucket.desc'))
+			.addText(text => text
+				.setPlaceholder(t('settings.cos.bucket.placeholder'))
+				.setValue(this.plugin.settings.cosBucket)
+				.onChange(async (value) => {
+					this.plugin.settings.cosBucket = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Region (required for all providers)
+		new Setting(containerEl)
+			.setName(t('settings.cos.region.name') + ' *')
+			.setDesc(t('settings.cos.region.desc'))
+			.addText(text => text
+				.setPlaceholder(t('settings.cos.region.placeholder'))
+				.setValue(this.plugin.settings.cosRegion)
+				.onChange(async (value) => {
+					this.plugin.settings.cosRegion = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Endpoint (only for Cloudflare R2)
+		if (this.plugin.settings.cosProvider === 'cloudflare') {
+			new Setting(containerEl)
+				.setName(t('settings.cos.endpoint.name') + ' *')
+				.setDesc(t('settings.cos.endpoint.desc'))
+				.addText(text => text
+					.setPlaceholder(t('settings.cos.endpoint.placeholder'))
+					.setValue(this.plugin.settings.cosEndpoint)
+					.onChange(async (value) => {
+						this.plugin.settings.cosEndpoint = value;
+						await this.plugin.saveSettings();
+					}));
+		}
+
+		// CDN URL
+		new Setting(containerEl)
+			.setName(t('settings.cos.cdn.name'))
+			.setDesc(t('settings.cos.cdn.desc'))
+			.addText(text => text
+				.setPlaceholder(t('settings.cos.cdn.placeholder'))
+				.setValue(this.plugin.settings.cosCdnUrl)
+				.onChange(async (value) => {
+					this.plugin.settings.cosCdnUrl = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Keep images locally
+		new Setting(containerEl)
+			.setName(t('settings.cos.keep.local.name'))
+			.setDesc(t('settings.cos.keep.local.desc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.keepLocalImages)
+				.onChange(async (value) => {
+					this.plugin.settings.keepLocalImages = value;
+					await this.plugin.saveSettings();
+					// Re-render to show/hide local path setting
+					this.display();
+				}));
+
+		// Local storage path (only when keepLocalImages is true)
+		if (this.plugin.settings.keepLocalImages) {
+			new Setting(containerEl)
+				.setName(t('settings.cos.local.path.name'))
+				.setDesc(t('settings.cos.local.path.desc'))
+				.addText(text => text
+					.setPlaceholder(t('settings.cos.local.path.placeholder'))
+					.setValue(this.plugin.settings.localImagePath)
+					.onChange(async (value) => {
+						this.plugin.settings.localImagePath = value;
+						await this.plugin.saveSettings();
+					}));
+		}
+
+		// Upload path template
+		new Setting(containerEl)
+			.setName(t('settings.cos.upload.path.name'))
+			.setDesc(t('settings.cos.upload.path.desc'))
+			.addText(text => text
+				.setPlaceholder(t('settings.cos.upload.path.placeholder'))
+				.setValue(this.plugin.settings.imageUploadPath)
+				.onChange(async (value) => {
+					this.plugin.settings.imageUploadPath = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Test COS configuration
+		new Setting(containerEl)
+			.setName(t('settings.cos.test.name'))
+			.setDesc(t('settings.cos.test.desc'))
+			.addButton(button => button
+				.setButtonText(t('settings.cos.test.button'))
+				.onClick(async () => {
+					// Validate required fields based on provider
+					const requiredFields = [
+						this.plugin.settings.cosSecretId,
+						this.plugin.settings.cosSecretKey,
+						this.plugin.settings.cosBucket,
+						this.plugin.settings.cosRegion // Region is required for all providers
+					];
+
+					// Add provider-specific required fields
+					if (this.plugin.settings.cosProvider === 'cloudflare') {
+						requiredFields.push(this.plugin.settings.cosEndpoint); // Endpoint only required for Cloudflare R2
+					}
+
+					if (requiredFields.some(field => !field.trim())) {
+						new Notice(t('cos.error.config.invalid'));
+						return;
+					}
+
+					// Set loading state
+					button.setButtonText(t('settings.cos.test.loading'));
+					button.setDisabled(true);
+
+					try {
+						const cosConfig = {
+							provider: this.plugin.settings.cosProvider,
+							secretId: this.plugin.settings.cosSecretId,
+							secretKey: this.plugin.settings.cosSecretKey,
+							bucket: this.plugin.settings.cosBucket,
+							endpoint: this.plugin.settings.cosEndpoint,
+							cdnUrl: this.plugin.settings.cosCdnUrl,
+							region: this.plugin.settings.cosRegion
+						};
+
+						const cosService = new (await import('./cos-service')).CosService(cosConfig);
+						const result = await cosService.testConnection();
+
+						if (result.success) {
+							new Notice(t('cos.test.success'));
+						} else {
+							new Notice(t('cos.test.failed', { error: result.message }));
+						}
+					} catch (error) {
+						console.error('COS test error:', error);
+						new Notice(t('cos.test.failed', { error: error.message }));
+					} finally {
+						button.setButtonText(t('settings.cos.test.button'));
+						button.setDisabled(false);
+					}
 				}));
 
 		// Save settings button - put below basic settings area

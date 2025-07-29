@@ -4,6 +4,22 @@ export interface GitSyncSettings {
   lastSyncTime: number;
   showRibbonIcon: boolean; // Whether to show sidebar button
   language: 'zh' | 'en' | 'auto'; // Language setting, auto means follow system
+  
+  // COS (Cloud Object Storage) settings
+  cosProvider: 'aliyun' | 'tencent' | 'aws' | 'cloudflare'; // Cloud service provider
+  cosSecretId: string; // Access Key ID / Secret ID
+  cosSecretKey: string; // Access Key Secret / Secret Key
+  cosBucket: string; // Bucket name
+  cosEndpoint: string; // Service endpoint
+  cosCdnUrl: string; // CDN domain for accessing uploaded files
+  cosRegion: string; // Region (for AWS/Cloudflare)
+  
+  // Local image storage settings
+  keepLocalImages: boolean; // Whether to keep images locally after upload
+  localImagePath: string; // Local path for storing images (relative to vault root)
+  
+  // Image upload path template
+  imageUploadPath: string; // Path template with placeholders: PATH, FILENAME, FOLDER, YYYY, MM, DD
 }
 
 export const DEFAULT_SETTINGS: GitSyncSettings = {
@@ -11,7 +27,23 @@ export const DEFAULT_SETTINGS: GitSyncSettings = {
   repositoryUrl: '',
   lastSyncTime: 0,
   showRibbonIcon: true,
-  language: 'auto' // Follow Obsidian language setting
+  language: 'auto', // Follow Obsidian language setting
+  
+  // COS default settings
+  cosProvider: 'aliyun',
+  cosSecretId: '',
+  cosSecretKey: '',
+  cosBucket: '',
+  cosEndpoint: '',
+  cosCdnUrl: '',
+  cosRegion: '',
+  
+  // Local image storage defaults
+  keepLocalImages: false,
+  localImagePath: 'assets',
+  
+  // Image upload path template default
+  imageUploadPath: 'images/{YYYY}/{MM}/{DD}'
 };
 
 export interface GitHubFile {
@@ -55,4 +87,32 @@ export interface FileCacheManager {
   clearCache(): void;
   isCacheValid(cache: FileCache, maxAge?: number): boolean;
   getAllCachedFiles(): FileCache[];
+}
+
+// COS upload result
+export interface CosUploadResult {
+  success: boolean;
+  message: string;
+  url?: string; // Final accessible URL
+  key?: string; // Object key in COS
+}
+
+// COS configuration for different providers
+export interface CosConfig {
+  provider: 'aliyun' | 'tencent' | 'aws' | 'cloudflare';
+  secretId: string;
+  secretKey: string;
+  bucket: string;
+  endpoint: string;
+  cdnUrl: string;
+  region: string;
+}
+
+// Image paste context
+export interface ImagePasteContext {
+  file: File;
+  fileName: string;
+  currentFilePath: string; // Current markdown file path
+  localPath?: string; // Local storage path (if keepLocalImages is true)
+  remotePath: string; // Remote COS path
 }
