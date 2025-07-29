@@ -23,4 +23,7 @@ coverage/
 
 # temporary files
 *.tmp
-*.temp 
+*.temp
+
+# plugin data (contains sensitive information like tokens)
+data.json 
