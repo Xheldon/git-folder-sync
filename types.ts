@@ -1,3 +1,12 @@
+export interface CosProviderConfig {
+  secretId: string;
+  secretKey: string;
+  bucket: string;
+  endpoint: string;
+  cdnUrl: string;
+  region: string;
+}
+
 export interface GitSyncSettings {
   githubToken: string;
   repositoryUrl: string; // Format: @https://github.com/user/repo/path/to/folder
@@ -6,13 +15,13 @@ export interface GitSyncSettings {
   language: 'zh' | 'en' | 'auto'; // Language setting, auto means follow system
   
   // COS (Cloud Object Storage) settings
-  cosProvider: 'aliyun' | 'tencent' | 'aws' | 'cloudflare'; // Cloud service provider
-  cosSecretId: string; // Access Key ID / Secret ID
-  cosSecretKey: string; // Access Key Secret / Secret Key
-  cosBucket: string; // Bucket name
-  cosEndpoint: string; // Service endpoint
-  cosCdnUrl: string; // CDN domain for accessing uploaded files
-  cosRegion: string; // Region (for AWS/Cloudflare)
+  cosProvider: 'aliyun' | 'tencent' | 'aws' | 'cloudflare'; // Current selected provider
+  cosConfigs: {
+    aliyun: CosProviderConfig;
+    tencent: CosProviderConfig;
+    aws: CosProviderConfig;
+    cloudflare: CosProviderConfig;
+  };
   
   // Local image storage settings
   keepLocalImages: boolean; // Whether to keep images locally after upload
@@ -31,12 +40,40 @@ export const DEFAULT_SETTINGS: GitSyncSettings = {
   
   // COS default settings
   cosProvider: 'aliyun',
-  cosSecretId: '',
-  cosSecretKey: '',
-  cosBucket: '',
-  cosEndpoint: '',
-  cosCdnUrl: '',
-  cosRegion: '',
+  cosConfigs: {
+    aliyun: {
+      secretId: '',
+      secretKey: '',
+      bucket: '',
+      endpoint: '',
+      cdnUrl: '',
+      region: ''
+    },
+    tencent: {
+      secretId: '',
+      secretKey: '',
+      bucket: '',
+      endpoint: '',
+      cdnUrl: '',
+      region: ''
+    },
+    aws: {
+      secretId: '',
+      secretKey: '',
+      bucket: '',
+      endpoint: '',
+      cdnUrl: '',
+      region: ''
+    },
+    cloudflare: {
+      secretId: '',
+      secretKey: '',
+      bucket: '',
+      endpoint: '',
+      cdnUrl: '',
+      region: ''
+    }
+  },
   
   // Local image storage defaults
   keepLocalImages: false,

@@ -1,5 +1,5 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, Menu, TFolder } from 'obsidian';
-import { GitSyncSettings, DEFAULT_SETTINGS, SyncResult, CosConfig, ImagePasteContext } from './types';
+import { GitSyncSettings, DEFAULT_SETTINGS, SyncResult, CosConfig, ImagePasteContext, CosProviderConfig } from './types';
 import { GitHubService } from './github-service';
 import { setLanguage, t, getSupportedLanguages, getActualLanguage } from './i18n-simple';
 import { FileCacheService } from './file-cache';
@@ -698,19 +698,50 @@ export default class GitSyncPlugin extends Plugin {
 	}
 
 	/**
+	 * Get current COS configuration
+	 */
+	getCurrentCosConfig(): CosProviderConfig {
+		return this.settings.cosConfigs[this.settings.cosProvider];
+	}
+
+	/**
+	 * Update current COS configuration
+	 */
+	updateCurrentCosConfig(updates: Partial<CosProviderConfig>): void {
+		const currentConfig = this.getCurrentCosConfig();
+		Object.assign(currentConfig, updates);
+	}
+
+	/**
+	 * Clear current COS configuration
+	 */
+	clearCurrentCosConfig(): void {
+		const emptyConfig: CosProviderConfig = {
+			secretId: '',
+			secretKey: '',
+			bucket: '',
+			endpoint: '',
+			cdnUrl: '',
+			region: ''
+		};
+		this.settings.cosConfigs[this.settings.cosProvider] = emptyConfig;
+	}
+
+	/**
 	 * Check if COS is properly configured
 	 */
 	private isCosConfigured(): boolean {
+		const currentConfig = this.getCurrentCosConfig();
 		const requiredFields = [
-			this.settings.cosSecretId,
-			this.settings.cosSecretKey,
-			this.settings.cosBucket,
-			this.settings.cosRegion // Region is required for all providers
+			currentConfig.secretId,
+			currentConfig.secretKey,
+			currentConfig.bucket,
+			currentConfig.region // Region is required for all providers
 		];
 
 		// Add provider-specific required fields
 		if (this.settings.cosProvider === 'cloudflare') {
-			requiredFields.push(this.settings.cosEndpoint); // Endpoint only required for Cloudflare R2
+			requiredFields.push(currentConfig.endpoint); // Endpoint only required for Cloudflare R2
 		}
 
 		return requiredFields.every(field => field && field.trim().length > 0);
@@ -743,14 +774,15 @@ export default class GitSyncPlugin extends Plugin {
 
 		try {
 			// Create COS configuration
+			const currentConfig = this.getCurrentCosConfig();
 			const cosConfig: CosConfig = {
 				provider: this.settings.cosProvider,
-				secretId: this.settings.cosSecretId,
-				secretKey: this.settings.cosSecretKey,
-				bucket: this.settings.cosBucket,
-				endpoint: this.settings.cosEndpoint,
-				cdnUrl: this.settings.cosCdnUrl,
-				region: this.settings.cosRegion
+				secretId: currentConfig.secretId,
+				secretKey: currentConfig.secretKey,
+				bucket: currentConfig.bucket,
+				endpoint: currentConfig.endpoint,
+				cdnUrl: currentConfig.cdnUrl,
+				region: currentConfig.region
 			};
 
 			// Upload to COS
@@ -921,10 +953,16 @@ class GitSyncSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		// COS settings section
+		// Image processing main section
 		containerEl.createEl('h2', { 
-			text: t('settings.cos.section.title'),
+			text: t('settings.image.section.title'),
 			cls: 'git-sync-section-title' 
+		});
+
+		// Cloud provider settings subsection
+		containerEl.createEl('h3', { 
+			text: t('settings.cos.provider.section.title'),
+			cls: 'git-sync-subsection-title' 
 		});
 
 		// Cloud storage provider
@@ -941,10 +979,13 @@ class GitSyncSettingTab extends PluginSettingTab {
 				dropdown.onChange(async (value) => {
 					this.plugin.settings.cosProvider = value as 'aliyun' | 'tencent' | 'aws' | 'cloudflare';
 					await this.plugin.saveSettings();
-					// Re-render settings to show/hide region field
+					// Re-render settings to show/hide region field and load saved config
 					this.display();
 				});
 			});
+
+		// Get current config for the selected provider
+		const currentConfig = this.plugin.getCurrentCosConfig();
 
 		// Secret ID
 		new Setting(containerEl)
@@ -952,9 +993,9 @@ class GitSyncSettingTab extends PluginSettingTab {
 			.setDesc(t('settings.cos.secret.id.desc'))
 			.addText(text => text
 				.setPlaceholder(t('settings.cos.secret.id.placeholder'))
-				.setValue(this.plugin.settings.cosSecretId)
+				.setValue(currentConfig.secretId)
 				.onChange(async (value) => {
-					this.plugin.settings.cosSecretId = value;
+					this.plugin.updateCurrentCosConfig({ secretId: value });
 					await this.plugin.saveSettings();
 				}));
 
@@ -964,9 +1005,9 @@ class GitSyncSettingTab extends PluginSettingTab {
 			.setDesc(t('settings.cos.secret.key.desc'))
 			.addText(text => text
 				.setPlaceholder(t('settings.cos.secret.key.placeholder'))
-				.setValue(this.plugin.settings.cosSecretKey)
+				.setValue(currentConfig.secretKey)
 				.onChange(async (value) => {
-					this.plugin.settings.cosSecretKey = value;
+					this.plugin.updateCurrentCosConfig({ secretKey: value });
 					await this.plugin.saveSettings();
 				}));
 
@@ -976,9 +1017,9 @@ class GitSyncSettingTab extends PluginSettingTab {
 			.setDesc(t('settings.cos.bucket.desc'))
 			.addText(text => text
 				.setPlaceholder(t('settings.cos.bucket.placeholder'))
-				.setValue(this.plugin.settings.cosBucket)
+				.setValue(currentConfig.bucket)
 				.onChange(async (value) => {
-					this.plugin.settings.cosBucket = value;
+					this.plugin.updateCurrentCosConfig({ bucket: value });
 					await this.plugin.saveSettings();
 				}));
 
@@ -988,9 +1029,9 @@ class GitSyncSettingTab extends PluginSettingTab {
 			.setDesc(t('settings.cos.region.desc'))
 			.addText(text => text
 				.setPlaceholder(t('settings.cos.region.placeholder'))
-				.setValue(this.plugin.settings.cosRegion)
+				.setValue(currentConfig.region)
 				.onChange(async (value) => {
-					this.plugin.settings.cosRegion = value;
+					this.plugin.updateCurrentCosConfig({ region: value });
 					await this.plugin.saveSettings();
 				}));
 
@@ -1001,9 +1042,9 @@ class GitSyncSettingTab extends PluginSettingTab {
 				.setDesc(t('settings.cos.endpoint.desc'))
 				.addText(text => text
 					.setPlaceholder(t('settings.cos.endpoint.placeholder'))
-					.setValue(this.plugin.settings.cosEndpoint)
+					.setValue(currentConfig.endpoint)
 					.onChange(async (value) => {
-						this.plugin.settings.cosEndpoint = value;
+						this.plugin.updateCurrentCosConfig({ endpoint: value });
 						await this.plugin.saveSettings();
 					}));
 		}
@@ -1014,11 +1055,89 @@ class GitSyncSettingTab extends PluginSettingTab {
 			.setDesc(t('settings.cos.cdn.desc'))
 			.addText(text => text
 				.setPlaceholder(t('settings.cos.cdn.placeholder'))
-				.setValue(this.plugin.settings.cosCdnUrl)
+				.setValue(currentConfig.cdnUrl)
 				.onChange(async (value) => {
-					this.plugin.settings.cosCdnUrl = value;
+					this.plugin.updateCurrentCosConfig({ cdnUrl: value });
 					await this.plugin.saveSettings();
 				}));
+
+		// Clear current configuration button
+		new Setting(containerEl)
+			.setName(t('settings.cos.clear.name'))
+			.setDesc(t('settings.cos.clear.desc'))
+			.addButton(button => button
+				.setButtonText(t('settings.cos.clear.button'))
+				.setWarning()
+				.onClick(async () => {
+					this.plugin.clearCurrentCosConfig();
+					await this.plugin.saveSettings();
+					new Notice(t('settings.cos.clear.success'));
+					// Re-render to show cleared fields
+					this.display();
+				}));
+
+		// Test COS configuration
+		new Setting(containerEl)
+			.setName(t('settings.cos.test.name'))
+			.setDesc(t('settings.cos.test.desc'))
+			.addButton(button => button
+				.setButtonText(t('settings.cos.test.button'))
+				.onClick(async () => {
+					// Validate required fields based on provider
+					const requiredFields = [
+						currentConfig.secretId,
+						currentConfig.secretKey,
+						currentConfig.bucket,
+						currentConfig.region // Region is required for all providers
+					];
+
+					// Add provider-specific required fields
+					if (this.plugin.settings.cosProvider === 'cloudflare') {
+						requiredFields.push(currentConfig.endpoint); // Endpoint only required for Cloudflare R2
+					}
+
+					if (requiredFields.some(field => !field.trim())) {
+						new Notice(t('cos.error.config.invalid'));
+						return;
+					}
+
+					// Set loading state
+					button.setButtonText(t('settings.cos.test.loading'));
+					button.setDisabled(true);
+
+					try {
+						const cosConfig = {
+							provider: this.plugin.settings.cosProvider,
+							secretId: currentConfig.secretId,
+							secretKey: currentConfig.secretKey,
+							bucket: currentConfig.bucket,
+							endpoint: currentConfig.endpoint,
+							cdnUrl: currentConfig.cdnUrl,
+							region: currentConfig.region
+						};
+
+						const cosService = new (await import('./cos-service')).CosService(cosConfig);
+						const result = await cosService.testConnection();
+
+						if (result.success) {
+							new Notice(t('cos.test.success'));
+						} else {
+							new Notice(t('cos.test.failed', { error: result.message }));
+						}
+					} catch (error) {
+						console.error('COS test error:', error);
+						new Notice(t('cos.test.failed', { error: error.message }));
+					} finally {
+						button.setButtonText(t('settings.cos.test.button'));
+						button.setDisabled(false);
+					}
+				}));
+
+		// Image upload settings subsection
+		containerEl.createEl('h3', { 
+			text: t('settings.image.upload.section.title'),
+			cls: 'git-sync-subsection-title' 
+		});
 
 		// Keep images locally
 		new Setting(containerEl)
@@ -1059,75 +1178,7 @@ class GitSyncSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		// Test COS configuration
-		new Setting(containerEl)
-			.setName(t('settings.cos.test.name'))
-			.setDesc(t('settings.cos.test.desc'))
-			.addButton(button => button
-				.setButtonText(t('settings.cos.test.button'))
-				.onClick(async () => {
-					// Validate required fields based on provider
-					const requiredFields = [
-						this.plugin.settings.cosSecretId,
-						this.plugin.settings.cosSecretKey,
-						this.plugin.settings.cosBucket,
-						this.plugin.settings.cosRegion // Region is required for all providers
-					];
 
-					// Add provider-specific required fields
-					if (this.plugin.settings.cosProvider === 'cloudflare') {
-						requiredFields.push(this.plugin.settings.cosEndpoint); // Endpoint only required for Cloudflare R2
-					}
-
-					if (requiredFields.some(field => !field.trim())) {
-						new Notice(t('cos.error.config.invalid'));
-						return;
-					}
-
-					// Set loading state
-					button.setButtonText(t('settings.cos.test.loading'));
-					button.setDisabled(true);
-
-					try {
-						const cosConfig = {
-							provider: this.plugin.settings.cosProvider,
-							secretId: this.plugin.settings.cosSecretId,
-							secretKey: this.plugin.settings.cosSecretKey,
-							bucket: this.plugin.settings.cosBucket,
-							endpoint: this.plugin.settings.cosEndpoint,
-							cdnUrl: this.plugin.settings.cosCdnUrl,
-							region: this.plugin.settings.cosRegion
-						};
-
-						const cosService = new (await import('./cos-service')).CosService(cosConfig);
-						const result = await cosService.testConnection();
-
-						if (result.success) {
-							new Notice(t('cos.test.success'));
-						} else {
-							new Notice(t('cos.test.failed', { error: result.message }));
-						}
-					} catch (error) {
-						console.error('COS test error:', error);
-						new Notice(t('cos.test.failed', { error: error.message }));
-					} finally {
-						button.setButtonText(t('settings.cos.test.button'));
-						button.setDisabled(false);
-					}
-				}));
-
-		// Save settings button - put below basic settings area
-		const saveButtonContainer = containerEl.createEl('div', { 
-			cls: 'git-sync-save-button-container' 
-		});
-		const saveButton = saveButtonContainer.createEl('button', {
-			cls: 'mod-cta',
-			text: t('settings.save.button')
-		});
-		saveButton.addEventListener('click', async () => {
-			await this.plugin.saveSettings();
-			new Notice(t('notice.settings.saved'));
-		});
 
 		// Danger zone title
 		containerEl.createEl('h2', { 

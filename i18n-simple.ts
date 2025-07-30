@@ -49,7 +49,9 @@ const translations = {
     'settings.clear.cache.button': '清空缓存',
     
     // COS settings
-    'settings.cos.section.title': '图片上传设置',
+    'settings.image.section.title': '图片处理',
+    'settings.cos.provider.section.title': '云服务商设置',
+    'settings.image.upload.section.title': '图片上传设置',
     'settings.cos.provider.name': '云存储服务商',
     'settings.cos.provider.desc': '选择要使用的云对象存储服务商',
     'settings.cos.provider.aliyun': '阿里云 OSS',
@@ -82,6 +84,10 @@ const translations = {
     'settings.cos.upload.path.name': '上传路径模板',
     'settings.cos.upload.path.desc': '支持占位符：{PATH}（当前文件路径）、{FILENAME}（文件名）、{FOLDER}（文件夹名）、{YYYY}（年）、{MM}（月）、{DD}（日）',
     'settings.cos.upload.path.placeholder': '例如：images/{YYYY}/{MM}/{DD}',
+    'settings.cos.clear.name': '清空当前配置',
+    'settings.cos.clear.desc': '清空当前选中提供商的所有配置信息',
+    'settings.cos.clear.button': '清空配置',
+    'settings.cos.clear.success': '配置已清空',
     'settings.cos.test.name': '测试COS配置',
     'settings.cos.test.desc': '测试当前COS配置是否可用',
     'settings.cos.test.button': '测试连接',
@@ -243,7 +249,9 @@ const translations = {
     'settings.clear.cache.button': 'Clear Cache',
     
     // COS settings
-    'settings.cos.section.title': 'Image Upload Settings',
+    'settings.image.section.title': 'Image Processing',
+    'settings.cos.provider.section.title': 'Cloud Provider Settings',
+    'settings.image.upload.section.title': 'Image Upload Settings',
     'settings.cos.provider.name': 'Cloud Storage Provider',
     'settings.cos.provider.desc': 'Select the cloud object storage service to use',
     'settings.cos.provider.aliyun': 'Aliyun OSS',
@@ -276,6 +284,10 @@ const translations = {
     'settings.cos.upload.path.name': 'Upload Path Template',
     'settings.cos.upload.path.desc': 'Supports placeholders: {PATH} (current file path), {FILENAME} (file name), {FOLDER} (folder name), {YYYY} (year), {MM} (month), {DD} (day)',
     'settings.cos.upload.path.placeholder': 'e.g.: images/{YYYY}/{MM}/{DD}',
+    'settings.cos.clear.name': 'Clear Current Configuration',
+    'settings.cos.clear.desc': 'Clear all configuration for the currently selected provider',
+    'settings.cos.clear.button': 'Clear Config',
+    'settings.cos.clear.success': 'Configuration cleared',
     'settings.cos.test.name': 'Test COS Configuration',
     'settings.cos.test.desc': 'Test if current COS configuration is available',
     'settings.cos.test.button': 'Test Connection',

@@ -147,6 +147,14 @@ export class CosService {
         // Generate signature for Tencent COS
         const signature = await this.generateTencentSignature('PUT', remotePath, date, file.type);
         
+        console.log('Tencent COS upload debug:', {
+            url,
+            remotePath,
+            signature: signature.substring(0, 50) + '...',
+            fileSize: file.size,
+            fileType: file.type
+        });
+        
         // Convert File to ArrayBuffer for requestUrl
         const fileBuffer = await file.arrayBuffer();
         
@@ -154,7 +162,6 @@ export class CosService {
             url: url,
             method: 'PUT',
             headers: {
-                'Date': date,
                 'Content-Type': file.type,
                 'Authorization': signature
             },
@@ -304,7 +311,6 @@ export class CosService {
             url: url,
             method: 'DELETE',
             headers: {
-                'Date': date,
                 'Authorization': signature
             }
         });
@@ -346,6 +352,16 @@ export class CosService {
     private async generateAliyunSignature(method: string, path: string, date: string, contentType?: string): Promise<string> {
         const stringToSign = `${method}\n\n${contentType || ''}\n${date}\n/${this.config.bucket}/${path}`;
         
+        console.log('Aliyun OSS signature debug:', {
+            method,
+            path,
+            date,
+            contentType,
+            stringToSign: stringToSign.replace(/\n/g, '\\n'),
+            bucket: this.config.bucket,
+            region: this.config.region
+        });
+        
         const encoder = new TextEncoder();
         const key = await crypto.subtle.importKey(
             'raw',
@@ -356,29 +372,151 @@ export class CosService {
         );
         
         const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(stringToSign));
-        return btoa(String.fromCharCode(...new Uint8Array(signature)));
+        const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+        
+        console.log('Generated Aliyun signature:', signatureBase64.substring(0, 20) + '...');
+        
+        return signatureBase64;
     }
 
     /**
      * Generate signature for Tencent COS
      */
     private async generateTencentSignature(method: string, path: string, date: string, contentType?: string): Promise<string> {
-        // Simplified Tencent COS signature - in production, you might want to use their SDK
-        const stringToSign = `${method}\n/${this.config.bucket}/${path}\n\ndate=${date}&host=${this.config.bucket}.cos.${this.config.region}.myqcloud.com`;
+        // Tencent COS signature v5 implementation according to official documentation
+        const now = Math.floor(Date.now() / 1000);
+        const expireTime = now + 3600; // 1 hour expiry
+        const keyTime = `${now};${expireTime}`;
         
+        console.log('Tencent signature debug:', {
+            method,
+            path,
+            keyTime,
+            secretId: this.config.secretId.substring(0, 8) + '...',
+            bucket: this.config.bucket,
+            region: this.config.region
+        });
+        
+        // Step 1: Generate SignKey using HMAC-SHA1(SecretKey, KeyTime)
+        const signKey = await this.hmacSha1(this.config.secretKey, keyTime);
+        
+        // Step 2: Generate HttpString
+        const httpMethod = method.toLowerCase();
+        const uriPathname = `/${path}`;
+        const httpParameters = ''; // No query parameters for PUT
+        const httpHeaders = `host=${this.config.bucket}.cos.${this.config.region}.myqcloud.com`;
+        const httpString = `${httpMethod}\n${uriPathname}\n${httpParameters}\n${httpHeaders}\n`;
+        
+        // Step 3: Generate StringToSign
+        const httpStringSha1 = await this.sha1Hash(httpString);
+        const stringToSign = `sha1\n${keyTime}\n${httpStringSha1}\n`;
+        
+        // Step 4: Generate Signature using HMAC-SHA1(SignKey, StringToSign)
+        const signature = await this.hmacSha1(signKey, stringToSign);
+        
+        // Step 5: Generate Authorization header
+        const authorization = `q-sign-algorithm=sha1&q-ak=${this.config.secretId}&q-sign-time=${keyTime}&q-key-time=${keyTime}&q-header-list=host&q-url-param-list=&q-signature=${signature}`;
+        
+        console.log('Generated authorization:', authorization.substring(0, 100) + '...');
+        
+        return authorization;
+    }
+    
+    /**
+     * HMAC-SHA1 implementation
+     */
+    private async hmacSha1(key: string, data: string): Promise<string> {
         const encoder = new TextEncoder();
-        const key = await crypto.subtle.importKey(
+        const keyBuffer = encoder.encode(key);
+        const dataBuffer = encoder.encode(data);
+        
+        const cryptoKey = await crypto.subtle.importKey(
             'raw',
-            encoder.encode(this.config.secretKey),
+            keyBuffer,
             { name: 'HMAC', hash: 'SHA-1' },
             false,
             ['sign']
         );
         
-        const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(stringToSign));
-        const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+        const signature = await crypto.subtle.sign('HMAC', cryptoKey, dataBuffer);
+        return Array.from(new Uint8Array(signature))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+    }
+    
+    /**
+     * SHA1 hash implementation
+     */
+    private async sha1Hash(data: string): Promise<string> {
+        const encoder = new TextEncoder();
+        const dataBuffer = encoder.encode(data);
+        const hashBuffer = await crypto.subtle.digest('SHA-1', dataBuffer);
+        return Array.from(new Uint8Array(hashBuffer))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+    }
+    
+    /**
+     * SHA256 hash implementation
+     */
+    private async sha256Hash(data: string): Promise<string> {
+        const encoder = new TextEncoder();
+        const dataBuffer = encoder.encode(data);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+        return Array.from(new Uint8Array(hashBuffer))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+    }
+    
+    /**
+     * HMAC-SHA256 implementation (returns hex string)
+     */
+    private async hmacSha256Hex(key: ArrayBuffer, data: string): Promise<string> {
+        const encoder = new TextEncoder();
+        const dataBuffer = encoder.encode(data);
         
-        return `q-sign-algorithm=sha1&q-ak=${this.config.secretId}&q-sign-time=0;32503651200&q-key-time=0;32503651200&q-header-list=date;host&q-url-param-list=&q-signature=${signatureB64}`;
+        const cryptoKey = await crypto.subtle.importKey(
+            'raw',
+            key,
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign']
+        );
+        
+        const signature = await crypto.subtle.sign('HMAC', cryptoKey, dataBuffer);
+        return Array.from(new Uint8Array(signature))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+    }
+    
+    /**
+     * HMAC-SHA256 implementation (returns ArrayBuffer)
+     */
+    private async hmacSha256(key: ArrayBuffer, data: string): Promise<ArrayBuffer> {
+        const encoder = new TextEncoder();
+        const dataBuffer = encoder.encode(data);
+        
+        const cryptoKey = await crypto.subtle.importKey(
+            'raw',
+            key,
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign']
+        );
+        
+        return await crypto.subtle.sign('HMAC', cryptoKey, dataBuffer);
+    }
+    
+    /**
+     * Generate AWS signature key
+     */
+    private async getAWSSignatureKey(secretKey: string, dateStamp: string, region: string, service: string): Promise<ArrayBuffer> {
+        const encoder = new TextEncoder();
+        const kDate = await this.hmacSha256(encoder.encode(`AWS4${secretKey}`), dateStamp);
+        const kRegion = await this.hmacSha256(kDate, region);
+        const kService = await this.hmacSha256(kRegion, service);
+        const kSigning = await this.hmacSha256(kService, 'aws4_request');
+        return kSigning;
     }
 
     /**
@@ -387,13 +525,42 @@ export class CosService {
     private async generateAWSSignature(method: string, path: string, date: Date, contentType?: string): Promise<{ headers: Record<string, string> }> {
         const isoDate = date.toISOString().replace(/[:\-]|\.\d{3}/g, '');
         const dateStamp = isoDate.substring(0, 8);
+        const service = 's3';
+        const algorithm = 'AWS4-HMAC-SHA256';
         
-        // This is a simplified implementation
-        // In production, you should use AWS SDK or a complete V4 signature implementation
+        // Step 1: Create canonical request
+        const host = `${this.config.bucket}.s3.${this.config.region}.amazonaws.com`;
+        const canonicalUri = `/${path}`;
+        const canonicalQueryString = '';
+        const canonicalHeaders = `host:${host}\nx-amz-content-sha256:UNSIGNED-PAYLOAD\nx-amz-date:${isoDate}\n`;
+        const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
+        const payloadHash = 'UNSIGNED-PAYLOAD';
+        
+        const canonicalRequest = `${method}\n${canonicalUri}\n${canonicalQueryString}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+        
+        // Step 2: Create string to sign
+        const credentialScope = `${dateStamp}/${this.config.region}/${service}/aws4_request`;
+        const canonicalRequestHash = await this.sha256Hash(canonicalRequest);
+        const stringToSign = `${algorithm}\n${isoDate}\n${credentialScope}\n${canonicalRequestHash}`;
+        
+        // Step 3: Calculate signature
+        const signingKey = await this.getAWSSignatureKey(this.config.secretKey, dateStamp, this.config.region, service);
+        const signature = await this.hmacSha256Hex(signingKey, stringToSign);
+        
+        console.log('AWS S3 signature debug:', {
+            method,
+            path,
+            bucket: this.config.bucket,
+            region: this.config.region,
+            canonicalRequest: canonicalRequest.substring(0, 100) + '...',
+            stringToSign: stringToSign.substring(0, 100) + '...',
+            signature: signature.substring(0, 16) + '...'
+        });
+        
         const headers = {
             'X-Amz-Date': isoDate,
-            'X-Amz-Content-Sha256': 'UNSIGNED-PAYLOAD',
-            'Authorization': `AWS4-HMAC-SHA256 Credential=${this.config.secretId}/${dateStamp}/${this.config.region}/s3/aws4_request, SignedHeaders=host;x-amz-date, Signature=placeholder`
+            'X-Amz-Content-Sha256': payloadHash,
+            'Authorization': `${algorithm} Credential=${this.config.secretId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
         };
         
         return { headers };
@@ -403,13 +570,46 @@ export class CosService {
      * Generate signature for Cloudflare R2 (S3 compatible)
      */
     private async generateCloudflareSignature(method: string, path: string, date: Date, contentType?: string): Promise<{ headers: Record<string, string> }> {
-        // Similar to AWS S3 V4 signature
+        // Cloudflare R2 uses AWS S3 V4 signature with 'auto' region
         const isoDate = date.toISOString().replace(/[:\-]|\.\d{3}/g, '');
+        const dateStamp = isoDate.substring(0, 8);
+        const service = 's3';
+        const algorithm = 'AWS4-HMAC-SHA256';
+        const region = 'auto'; // Cloudflare R2 uses 'auto' as region
+        
+        // Step 1: Create canonical request
+        const host = new URL(this.config.endpoint).host;
+        const canonicalUri = `/${path}`;
+        const canonicalQueryString = '';
+        const canonicalHeaders = `host:${host}\nx-amz-content-sha256:UNSIGNED-PAYLOAD\nx-amz-date:${isoDate}\n`;
+        const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
+        const payloadHash = 'UNSIGNED-PAYLOAD';
+        
+        const canonicalRequest = `${method}\n${canonicalUri}\n${canonicalQueryString}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+        
+        // Step 2: Create string to sign
+        const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+        const canonicalRequestHash = await this.sha256Hash(canonicalRequest);
+        const stringToSign = `${algorithm}\n${isoDate}\n${credentialScope}\n${canonicalRequestHash}`;
+        
+        // Step 3: Calculate signature
+        const signingKey = await this.getAWSSignatureKey(this.config.secretKey, dateStamp, region, service);
+        const signature = await this.hmacSha256Hex(signingKey, stringToSign);
+        
+        console.log('Cloudflare R2 signature debug:', {
+            method,
+            path,
+            endpoint: this.config.endpoint,
+            host,
+            canonicalRequest: canonicalRequest.substring(0, 100) + '...',
+            stringToSign: stringToSign.substring(0, 100) + '...',
+            signature: signature.substring(0, 16) + '...'
+        });
         
         const headers = {
             'X-Amz-Date': isoDate,
-            'X-Amz-Content-Sha256': 'UNSIGNED-PAYLOAD',
-            'Authorization': `AWS4-HMAC-SHA256 Credential=${this.config.secretId}/${isoDate.substring(0, 8)}/auto/s3/aws4_request, SignedHeaders=host;x-amz-date, Signature=placeholder`
+            'X-Amz-Content-Sha256': payloadHash,
+            'Authorization': `${algorithm} Credential=${this.config.secretId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
         };
         
         return { headers };

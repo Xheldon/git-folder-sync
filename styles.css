@@ -323,3 +323,14 @@
 .sponsor {
   color: var(--color-orange);
 }
+
+/* Subsection titles styling */
+.git-sync-subsection-title {
+  color: var(--text-normal);
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-weight-medium);
+  margin-top: 24px;
+  margin-bottom: 12px;
+  padding-left: 8px;
+  border-left: 3px solid var(--text-accent);
+}
