@@ -13,6 +13,7 @@ export default class GitSyncPlugin extends Plugin {
 	statusBarEl: HTMLElement | null = null;
 	currentFile: TFile | null = null;
 	private fileModifyTimeout: NodeJS.Timeout | null = null;
+	private isProcessingImagePaste: boolean = false;
 
 	async onload() {
 		await this.loadSettings();
@@ -60,7 +61,11 @@ export default class GitSyncPlugin extends Plugin {
 		);
 
 		// Listen for paste events to handle image uploads
-		this.registerDomEvent(document, 'paste', this.handlePasteEvent.bind(this));
+		// Use capture phase to intercept events before Obsidian's handlers
+		this.registerDomEvent(document, 'paste', this.handlePasteEvent.bind(this), { capture: true });
+		
+		// Also listen on the workspace container to catch events that might bypass document listener
+		this.registerDomEvent(document.body, 'paste', this.handlePasteEvent.bind(this), { capture: true });
 
 		// Add sync button to note editing interface
 		this.addCommand({
@@ -671,30 +676,58 @@ export default class GitSyncPlugin extends Plugin {
 			return;
 		}
 
-		// Check if COS is configured
-		if (!this.isCosConfigured()) {
+		// Check if there are any image files in clipboard
+		const imageFiles: File[] = [];
+		for (let i = 0; i < clipboardData.files.length; i++) {
+			const file = clipboardData.files[i];
+			if (file.type.startsWith('image/')) {
+				imageFiles.push(file);
+			}
+		}
+
+		// If no image files, let Obsidian handle it normally
+		if (imageFiles.length === 0) {
 			return;
 		}
 
-		// Process each file in clipboard
-		for (let i = 0; i < clipboardData.files.length; i++) {
-			const file = clipboardData.files[i];
-			
-			// Only handle image files
-			if (!file.type.startsWith('image/')) {
-				continue;
-			}
+		// If image processing is disabled, let Obsidian handle it normally
+		if (!this.settings.enableImageProcessing) {
+			return;
+		}
 
-			// Prevent default paste behavior for images
-			event.preventDefault();
+		// If image processing is enabled, we take control immediately
+		// Prevent default paste behavior as early as possible
+		event.preventDefault();
+		event.stopPropagation();
+		event.stopImmediatePropagation();
 
+		// Set flag to indicate image paste is being processed
+		this.isProcessingImagePaste = true;
+
+		// Check if COS is configured for upload
+		const cosConfigured = this.isCosConfigured();
+
+		// Process each image file
+		for (const file of imageFiles) {
 			try {
-				await this.handleImageUpload(file, activeView.editor);
+				if (cosConfigured) {
+					// Upload to COS and insert CDN link
+					await this.handleImageUpload(file, activeView.editor);
+				} else if (this.settings.keepLocalImages && this.settings.localImagePath) {
+					// Only save locally and insert local link
+					await this.handleLocalImageOnly(file, activeView.editor);
+				} else {
+					// Show notice that configuration is needed
+					new Notice(t('cos.upload.no.config'));
+				}
 			} catch (error) {
-				console.error('Error handling image upload:', error);
+				console.error('Error handling image:', error);
 				new Notice(t('cos.upload.failed', { error: error.message }));
 			}
 		}
+
+		// Reset flag after processing all images
+		this.isProcessingImagePaste = false;
 	}
 
 	/**
@@ -820,6 +853,52 @@ export default class GitSyncPlugin extends Plugin {
 			new Notice(t('cos.upload.failed', { error: error.message }));
 			
 			console.error('Image upload failed:', error);
+			throw error; // Re-throw to be handled by the caller
+		}
+	}
+
+	/**
+	 * Handle local image storage only (when COS is not configured)
+	 */
+	private async handleLocalImageOnly(file: File, editor: Editor): Promise<void> {
+		// Generate unique filename
+		const timestamp = Date.now();
+		const extension = file.name.split('.').pop() || 'png';
+		const fileName = `image-${timestamp}.${extension}`;
+
+		try {
+			// Save image locally using the configured local path
+			const localPath = parseImagePath(this.settings.localImagePath, {
+				currentFilePath: this.currentFile!.path,
+				fileName: fileName
+			});
+
+			// Create directory if it doesn't exist
+			const dirPath = localPath.substring(0, localPath.lastIndexOf('/'));
+			if (dirPath) {
+				try {
+					await this.app.vault.createFolder(dirPath);
+				} catch (error) {
+					// Folder might already exist, ignore error
+				}
+			}
+
+			// Convert File to ArrayBuffer
+			const arrayBuffer = await file.arrayBuffer();
+			
+			// Save file to vault
+			await this.app.vault.createBinary(localPath, arrayBuffer);
+
+			// Insert image link at cursor position
+			const imageMarkdown = `![${fileName}](${localPath})`;
+			const cursorPos = editor.getCursor();
+			editor.replaceRange(imageMarkdown, cursorPos);
+
+			new Notice(t('cos.upload.success'));
+			console.log('Image saved locally:', localPath);
+		} catch (error) {
+			new Notice(t('cos.upload.failed', { error: error.message }));
+			console.error('Local image save failed:', error);
 		}
 	}
 
@@ -959,224 +1038,240 @@ class GitSyncSettingTab extends PluginSettingTab {
 			cls: 'git-sync-section-title' 
 		});
 
-		// Cloud provider settings subsection
-		containerEl.createEl('h3', { 
-			text: t('settings.cos.provider.section.title'),
-			cls: 'git-sync-subsection-title' 
-		});
-
-		// Cloud storage provider
+		// Enable image processing toggle
 		new Setting(containerEl)
-			.setName(t('settings.cos.provider.name'))
-			.setDesc(t('settings.cos.provider.desc'))
-			.addDropdown(dropdown => {
-				dropdown.addOption('aliyun', t('settings.cos.provider.aliyun'));
-				dropdown.addOption('tencent', t('settings.cos.provider.tencent'));
-				dropdown.addOption('aws', t('settings.cos.provider.aws'));
-				dropdown.addOption('cloudflare', t('settings.cos.provider.cloudflare'));
-				
-				dropdown.setValue(this.plugin.settings.cosProvider);
-				dropdown.onChange(async (value) => {
-					this.plugin.settings.cosProvider = value as 'aliyun' | 'tencent' | 'aws' | 'cloudflare';
+			.setName(t('settings.image.enable.name'))
+			.setDesc(t('settings.image.enable.desc'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableImageProcessing)
+				.onChange(async (value) => {
+					this.plugin.settings.enableImageProcessing = value;
 					await this.plugin.saveSettings();
-					// Re-render settings to show/hide region field and load saved config
+					// Re-render to show/hide image processing settings
 					this.display();
-				});
+				}));
+
+		// Only show image processing settings if enabled
+		if (this.plugin.settings.enableImageProcessing) {
+			// Cloud provider settings subsection
+			containerEl.createEl('h3', { 
+				text: t('settings.cos.provider.section.title'),
+				cls: 'git-sync-subsection-title' 
 			});
 
-		// Get current config for the selected provider
-		const currentConfig = this.plugin.getCurrentCosConfig();
-
-		// Secret ID
-		new Setting(containerEl)
-			.setName(t('settings.cos.secret.id.name') + ' *')
-			.setDesc(t('settings.cos.secret.id.desc'))
-			.addText(text => text
-				.setPlaceholder(t('settings.cos.secret.id.placeholder'))
-				.setValue(currentConfig.secretId)
-				.onChange(async (value) => {
-					this.plugin.updateCurrentCosConfig({ secretId: value });
-					await this.plugin.saveSettings();
-				}));
-
-		// Secret Key
-		new Setting(containerEl)
-			.setName(t('settings.cos.secret.key.name') + ' *')
-			.setDesc(t('settings.cos.secret.key.desc'))
-			.addText(text => text
-				.setPlaceholder(t('settings.cos.secret.key.placeholder'))
-				.setValue(currentConfig.secretKey)
-				.onChange(async (value) => {
-					this.plugin.updateCurrentCosConfig({ secretKey: value });
-					await this.plugin.saveSettings();
-				}));
-
-		// Bucket
-		new Setting(containerEl)
-			.setName(t('settings.cos.bucket.name') + ' *')
-			.setDesc(t('settings.cos.bucket.desc'))
-			.addText(text => text
-				.setPlaceholder(t('settings.cos.bucket.placeholder'))
-				.setValue(currentConfig.bucket)
-				.onChange(async (value) => {
-					this.plugin.updateCurrentCosConfig({ bucket: value });
-					await this.plugin.saveSettings();
-				}));
-
-		// Region (required for all providers)
-		new Setting(containerEl)
-			.setName(t('settings.cos.region.name') + ' *')
-			.setDesc(t('settings.cos.region.desc'))
-			.addText(text => text
-				.setPlaceholder(t('settings.cos.region.placeholder'))
-				.setValue(currentConfig.region)
-				.onChange(async (value) => {
-					this.plugin.updateCurrentCosConfig({ region: value });
-					await this.plugin.saveSettings();
-				}));
-
-		// Endpoint (only for Cloudflare R2)
-		if (this.plugin.settings.cosProvider === 'cloudflare') {
+			// Cloud storage provider
 			new Setting(containerEl)
-				.setName(t('settings.cos.endpoint.name') + ' *')
-				.setDesc(t('settings.cos.endpoint.desc'))
+				.setName(t('settings.cos.provider.name'))
+				.setDesc(t('settings.cos.provider.desc'))
+				.addDropdown(dropdown => {
+					dropdown.addOption('aliyun', t('settings.cos.provider.aliyun'));
+					dropdown.addOption('tencent', t('settings.cos.provider.tencent'));
+					dropdown.addOption('aws', t('settings.cos.provider.aws'));
+					dropdown.addOption('cloudflare', t('settings.cos.provider.cloudflare'));
+					
+					dropdown.setValue(this.plugin.settings.cosProvider);
+					dropdown.onChange(async (value) => {
+						this.plugin.settings.cosProvider = value as 'aliyun' | 'tencent' | 'aws' | 'cloudflare';
+						await this.plugin.saveSettings();
+						// Re-render settings to show/hide region field and load saved config
+						this.display();
+					});
+				});
+
+			// Get current config for the selected provider
+			const currentConfig = this.plugin.getCurrentCosConfig();
+
+			// Secret ID
+			new Setting(containerEl)
+				.setName(t('settings.cos.secret.id.name') + ' *')
+				.setDesc(t('settings.cos.secret.id.desc'))
 				.addText(text => text
-					.setPlaceholder(t('settings.cos.endpoint.placeholder'))
-					.setValue(currentConfig.endpoint)
+					.setPlaceholder(t('settings.cos.secret.id.placeholder'))
+					.setValue(currentConfig.secretId)
 					.onChange(async (value) => {
-						this.plugin.updateCurrentCosConfig({ endpoint: value });
+						this.plugin.updateCurrentCosConfig({ secretId: value });
 						await this.plugin.saveSettings();
 					}));
-		}
 
-		// CDN URL
-		new Setting(containerEl)
-			.setName(t('settings.cos.cdn.name'))
-			.setDesc(t('settings.cos.cdn.desc'))
-			.addText(text => text
-				.setPlaceholder(t('settings.cos.cdn.placeholder'))
-				.setValue(currentConfig.cdnUrl)
-				.onChange(async (value) => {
-					this.plugin.updateCurrentCosConfig({ cdnUrl: value });
-					await this.plugin.saveSettings();
-				}));
+			// Secret Key
+			new Setting(containerEl)
+				.setName(t('settings.cos.secret.key.name') + ' *')
+				.setDesc(t('settings.cos.secret.key.desc'))
+				.addText(text => text
+					.setPlaceholder(t('settings.cos.secret.key.placeholder'))
+					.setValue(currentConfig.secretKey)
+					.onChange(async (value) => {
+						this.plugin.updateCurrentCosConfig({ secretKey: value });
+						await this.plugin.saveSettings();
+					}));
 
-		// Clear current configuration button
-		new Setting(containerEl)
-			.setName(t('settings.cos.clear.name'))
-			.setDesc(t('settings.cos.clear.desc'))
-			.addButton(button => button
-				.setButtonText(t('settings.cos.clear.button'))
-				.setWarning()
-				.onClick(async () => {
-					this.plugin.clearCurrentCosConfig();
-					await this.plugin.saveSettings();
-					new Notice(t('settings.cos.clear.success'));
-					// Re-render to show cleared fields
-					this.display();
-				}));
+			// Bucket
+			new Setting(containerEl)
+				.setName(t('settings.cos.bucket.name') + ' *')
+				.setDesc(t('settings.cos.bucket.desc'))
+				.addText(text => text
+					.setPlaceholder(t('settings.cos.bucket.placeholder'))
+					.setValue(currentConfig.bucket)
+					.onChange(async (value) => {
+						this.plugin.updateCurrentCosConfig({ bucket: value });
+						await this.plugin.saveSettings();
+					}));
 
-		// Test COS configuration
-		new Setting(containerEl)
-			.setName(t('settings.cos.test.name'))
-			.setDesc(t('settings.cos.test.desc'))
-			.addButton(button => button
-				.setButtonText(t('settings.cos.test.button'))
-				.onClick(async () => {
-					// Validate required fields based on provider
-					const requiredFields = [
-						currentConfig.secretId,
-						currentConfig.secretKey,
-						currentConfig.bucket,
-						currentConfig.region // Region is required for all providers
-					];
+			// Region (required for all providers)
+			new Setting(containerEl)
+				.setName(t('settings.cos.region.name') + ' *')
+				.setDesc(t('settings.cos.region.desc'))
+				.addText(text => text
+					.setPlaceholder(t('settings.cos.region.placeholder'))
+					.setValue(currentConfig.region)
+					.onChange(async (value) => {
+						this.plugin.updateCurrentCosConfig({ region: value });
+						await this.plugin.saveSettings();
+					}));
 
-					// Add provider-specific required fields
-					if (this.plugin.settings.cosProvider === 'cloudflare') {
-						requiredFields.push(currentConfig.endpoint); // Endpoint only required for Cloudflare R2
-					}
+			// Endpoint (only for Cloudflare R2)
+			if (this.plugin.settings.cosProvider === 'cloudflare') {
+				new Setting(containerEl)
+					.setName(t('settings.cos.endpoint.name') + ' *')
+					.setDesc(t('settings.cos.endpoint.desc'))
+					.addText(text => text
+						.setPlaceholder(t('settings.cos.endpoint.placeholder'))
+						.setValue(currentConfig.endpoint)
+						.onChange(async (value) => {
+							this.plugin.updateCurrentCosConfig({ endpoint: value });
+							await this.plugin.saveSettings();
+						}));
+			}
 
-					if (requiredFields.some(field => !field.trim())) {
-						new Notice(t('cos.error.config.invalid'));
-						return;
-					}
+			// CDN URL
+			new Setting(containerEl)
+				.setName(t('settings.cos.cdn.name'))
+				.setDesc(t('settings.cos.cdn.desc'))
+				.addText(text => text
+					.setPlaceholder(t('settings.cos.cdn.placeholder'))
+					.setValue(currentConfig.cdnUrl)
+					.onChange(async (value) => {
+						this.plugin.updateCurrentCosConfig({ cdnUrl: value });
+						await this.plugin.saveSettings();
+					}));
 
-					// Set loading state
-					button.setButtonText(t('settings.cos.test.loading'));
-					button.setDisabled(true);
+			// Clear current configuration button
+			new Setting(containerEl)
+				.setName(t('settings.cos.clear.name'))
+				.setDesc(t('settings.cos.clear.desc'))
+				.addButton(button => button
+					.setButtonText(t('settings.cos.clear.button'))
+					.setWarning()
+					.onClick(async () => {
+						this.plugin.clearCurrentCosConfig();
+						await this.plugin.saveSettings();
+						new Notice(t('settings.cos.clear.success'));
+						// Re-render to show cleared fields
+						this.display();
+					}));
 
-					try {
-						const cosConfig = {
-							provider: this.plugin.settings.cosProvider,
-							secretId: currentConfig.secretId,
-							secretKey: currentConfig.secretKey,
-							bucket: currentConfig.bucket,
-							endpoint: currentConfig.endpoint,
-							cdnUrl: currentConfig.cdnUrl,
-							region: currentConfig.region
-						};
+			// Test COS configuration
+			new Setting(containerEl)
+				.setName(t('settings.cos.test.name'))
+				.setDesc(t('settings.cos.test.desc'))
+				.addButton(button => button
+					.setButtonText(t('settings.cos.test.button'))
+					.onClick(async () => {
+						// Validate required fields based on provider
+						const requiredFields = [
+							currentConfig.secretId,
+							currentConfig.secretKey,
+							currentConfig.bucket,
+							currentConfig.region // Region is required for all providers
+						];
 
-						const cosService = new (await import('./cos-service')).CosService(cosConfig);
-						const result = await cosService.testConnection();
-
-						if (result.success) {
-							new Notice(t('cos.test.success'));
-						} else {
-							new Notice(t('cos.test.failed', { error: result.message }));
+						// Add provider-specific required fields
+						if (this.plugin.settings.cosProvider === 'cloudflare') {
+							requiredFields.push(currentConfig.endpoint); // Endpoint only required for Cloudflare R2
 						}
-					} catch (error) {
-						console.error('COS test error:', error);
-						new Notice(t('cos.test.failed', { error: error.message }));
-					} finally {
-						button.setButtonText(t('settings.cos.test.button'));
-						button.setDisabled(false);
-					}
-				}));
 
-		// Image upload settings subsection
-		containerEl.createEl('h3', { 
-			text: t('settings.image.upload.section.title'),
-			cls: 'git-sync-subsection-title' 
-		});
+						if (requiredFields.some(field => !field.trim())) {
+							new Notice(t('cos.error.config.invalid'));
+							return;
+						}
 
-		// Keep images locally
-		new Setting(containerEl)
-			.setName(t('settings.cos.keep.local.name'))
-			.setDesc(t('settings.cos.keep.local.desc'))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.keepLocalImages)
-				.onChange(async (value) => {
-					this.plugin.settings.keepLocalImages = value;
-					await this.plugin.saveSettings();
-					// Re-render to show/hide local path setting
-					this.display();
-				}));
+						// Set loading state
+						button.setButtonText(t('settings.cos.test.loading'));
+						button.setDisabled(true);
 
-		// Local storage path (only when keepLocalImages is true)
-		if (this.plugin.settings.keepLocalImages) {
+						try {
+							const cosConfig = {
+								provider: this.plugin.settings.cosProvider,
+								secretId: currentConfig.secretId,
+								secretKey: currentConfig.secretKey,
+								bucket: currentConfig.bucket,
+								endpoint: currentConfig.endpoint,
+								cdnUrl: currentConfig.cdnUrl,
+								region: currentConfig.region
+							};
+
+							const cosService = new (await import('./cos-service')).CosService(cosConfig);
+							const result = await cosService.testConnection();
+
+							if (result.success) {
+								new Notice(t('cos.test.success'));
+							} else {
+								new Notice(t('cos.test.failed', { error: result.message }));
+							}
+						} catch (error) {
+							console.error('COS test error:', error);
+							new Notice(t('cos.test.failed', { error: error.message }));
+						} finally {
+							button.setButtonText(t('settings.cos.test.button'));
+							button.setDisabled(false);
+						}
+					}));
+
+			// Image upload settings subsection
+			containerEl.createEl('h3', { 
+				text: t('settings.image.upload.section.title'),
+				cls: 'git-sync-subsection-title' 
+			});
+
+			// Keep images locally
 			new Setting(containerEl)
-				.setName(t('settings.cos.local.path.name'))
-				.setDesc(t('settings.cos.local.path.desc'))
-				.addText(text => text
-					.setPlaceholder(t('settings.cos.local.path.placeholder'))
-					.setValue(this.plugin.settings.localImagePath)
+				.setName(t('settings.cos.keep.local.name'))
+				.setDesc(t('settings.cos.keep.local.desc'))
+				.addToggle(toggle => toggle
+					.setValue(this.plugin.settings.keepLocalImages)
 					.onChange(async (value) => {
-						this.plugin.settings.localImagePath = value;
+						this.plugin.settings.keepLocalImages = value;
+						await this.plugin.saveSettings();
+						// Re-render to show/hide local path setting
+						this.display();
+					}));
+
+			// Local storage path (only when keepLocalImages is true)
+			if (this.plugin.settings.keepLocalImages) {
+				new Setting(containerEl)
+					.setName(t('settings.cos.local.path.name'))
+					.setDesc(t('settings.cos.local.path.desc'))
+					.addText(text => text
+						.setPlaceholder(t('settings.cos.local.path.placeholder'))
+						.setValue(this.plugin.settings.localImagePath)
+						.onChange(async (value) => {
+							this.plugin.settings.localImagePath = value;
+							await this.plugin.saveSettings();
+						}));
+			}
+
+			// Upload path template
+			new Setting(containerEl)
+				.setName(t('settings.cos.upload.path.name'))
+				.setDesc(t('settings.cos.upload.path.desc'))
+				.addText(text => text
+					.setPlaceholder(t('settings.cos.upload.path.placeholder'))
+					.setValue(this.plugin.settings.imageUploadPath)
+					.onChange(async (value) => {
+						this.plugin.settings.imageUploadPath = value;
 						await this.plugin.saveSettings();
 					}));
 		}
-
-		// Upload path template
-		new Setting(containerEl)
-			.setName(t('settings.cos.upload.path.name'))
-			.setDesc(t('settings.cos.upload.path.desc'))
-			.addText(text => text
-				.setPlaceholder(t('settings.cos.upload.path.placeholder'))
-				.setValue(this.plugin.settings.imageUploadPath)
-				.onChange(async (value) => {
-					this.plugin.settings.imageUploadPath = value;
-					await this.plugin.saveSettings();
-				}));
 
 
 

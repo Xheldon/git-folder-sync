@@ -14,6 +14,9 @@ export interface GitSyncSettings {
   showRibbonIcon: boolean; // Whether to show sidebar button
   language: 'zh' | 'en' | 'auto'; // Language setting, auto means follow system
   
+  // Image processing settings
+  enableImageProcessing: boolean; // Whether to enable image processing and upload functionality
+  
   // COS (Cloud Object Storage) settings
   cosProvider: 'aliyun' | 'tencent' | 'aws' | 'cloudflare'; // Current selected provider
   cosConfigs: {
@@ -37,6 +40,9 @@ export const DEFAULT_SETTINGS: GitSyncSettings = {
   lastSyncTime: 0,
   showRibbonIcon: true,
   language: 'auto', // Follow Obsidian language setting
+  
+  // Image processing defaults
+  enableImageProcessing: false,
   
   // COS default settings
   cosProvider: 'aliyun',

@@ -50,6 +50,8 @@ const translations = {
     
     // COS settings
     'settings.image.section.title': '图片处理',
+    'settings.image.enable.name': '启用图片处理功能',
+    'settings.image.enable.desc': '开启后，粘贴图片时将自动上传到云存储并替换为链接',
     'settings.cos.provider.section.title': '云服务商设置',
     'settings.image.upload.section.title': '图片上传设置',
     'settings.cos.provider.name': '云存储服务商',
@@ -191,8 +193,9 @@ const translations = {
     
     // COS upload messages
     'cos.upload.success': '图片上传成功',
-    'cos.upload.failed': '图片上传失败：{error}',
+    'cos.upload.failed': '图片上传失败: {error}',
     'cos.upload.uploading': '正在上传图片...',
+    'cos.upload.no.config': '图片处理功能已启用，但需要配置云存储或本地存储路径',
     'cos.test.success': 'COS配置测试成功',
     'cos.test.failed': 'COS配置测试失败：{error}',
     'cos.error.unsupported.provider': '不支持的云存储服务商：{provider}',
@@ -202,7 +205,7 @@ const translations = {
     'cos.error.aws.upload.failed': 'AWS S3上传失败（{status}）：{error}',
     'cos.error.cloudflare.upload.failed': 'Cloudflare R2上传失败（{status}）：{error}',
     'cos.error.config.invalid': 'COS配置不完整，请检查配置项',
-    'cos.paste.placeholder': '![上传中...]({filename})',
+    'cos.paste.placeholder': '正在上传 {filename}...',
   },
   en: {
     // Settings interface
@@ -250,6 +253,8 @@ const translations = {
     
     // COS settings
     'settings.image.section.title': 'Image Processing',
+    'settings.image.enable.name': 'Enable Image Processing',
+    'settings.image.enable.desc': 'When enabled, images pasted will be automatically uploaded to cloud storage and replaced with links',
     'settings.cos.provider.section.title': 'Cloud Provider Settings',
     'settings.image.upload.section.title': 'Image Upload Settings',
     'settings.cos.provider.name': 'Cloud Storage Provider',
@@ -393,6 +398,7 @@ const translations = {
     'cos.upload.success': 'Image uploaded successfully',
     'cos.upload.failed': 'Image upload failed: {error}',
     'cos.upload.uploading': 'Uploading image...',
+    'cos.upload.no.config': 'Image processing is enabled, but cloud storage or local storage path needs to be configured',
     'cos.test.success': 'COS configuration test successful',
     'cos.test.failed': 'COS configuration test failed: {error}',
     'cos.error.unsupported.provider': 'Unsupported cloud storage provider: {provider}',
@@ -402,7 +408,7 @@ const translations = {
     'cos.error.aws.upload.failed': 'AWS S3 upload failed ({status}): {error}',
     'cos.error.cloudflare.upload.failed': 'Cloudflare R2 upload failed ({status}): {error}',
     'cos.error.config.invalid': 'COS configuration is incomplete, please check settings',
-    'cos.paste.placeholder': '![Uploading...]({filename})',
+    'cos.paste.placeholder': 'Uploading {filename}...',
   }
 };
 
