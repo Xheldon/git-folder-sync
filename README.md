@@ -13,6 +13,7 @@ An Obsidian plugin that supports synchronization with GitHub repositories, built
 - 🌍 **Internationalization**: Support for Chinese and English languages
 - 💾 **Smart Caching**: File status caching to reduce GitHub API calls
 - 📊 **Real-time Status**: Status bar showing file sync status and last modified time
+- 🖼️ **Image Processing**: Automatic image upload to cloud storage when pasting images
 
 ## Installation
 
@@ -74,6 +75,54 @@ Examples:
 - `https://github.com/Xheldon/git-sync/data/_post`
 - `username/notes/obsidian-vault`
 
+### 3. Image Processing Configuration (Optional)
+
+The plugin includes an optional image processing feature that automatically uploads pasted images to cloud storage services.
+
+#### Supported Cloud Storage Providers
+
+- **Aliyun OSS**: Alibaba Cloud Object Storage Service
+- **Tencent COS**: Tencent Cloud Object Storage
+- **AWS S3**: Amazon Simple Storage Service
+- **Cloudflare R2**: Cloudflare's S3-compatible storage
+
+#### Configuration Steps
+
+1. **Enable Image Processing**: Turn on the "Enable Image Processing" toggle in settings
+2. **Select Cloud Provider**: Choose your preferred cloud storage service
+3. **Configure Credentials**: Enter your cloud storage credentials:
+   - Access Key ID / Secret ID
+   - Access Key Secret / Secret Key
+   - Bucket Name
+   - Region (required for all providers)
+   - Endpoint (required for Cloudflare R2 only)
+   - CDN URL (optional, for faster image loading)
+
+#### Image Upload Settings
+
+- **Keep Images Locally**: Optionally keep a local copy of uploaded images
+- **Local Image Path**: Specify where to store local image copies (when enabled)
+- **Upload Path Template**: Customize the remote storage path using variables:
+  - `{YYYY}`: Current year
+  - `{MM}`: Current month
+  - `{DD}`: Current day
+  - `{FILENAME}`: Current file name
+  - `{FOLDER}`: Current folder name
+
+#### How It Works
+
+1. **Paste Image**: When you paste an image in a markdown file
+2. **Automatic Upload**: The image is automatically uploaded to your configured cloud storage
+3. **Link Replacement**: The pasted image is replaced with a CDN link
+4. **Local Copy** (optional): A local copy is saved if enabled
+
+#### Behavior Options
+
+- **Image Processing Disabled**: Uses Obsidian's default image handling
+- **Image Processing Enabled + Cloud Storage Configured**: Uploads to cloud and inserts CDN links
+- **Image Processing Enabled + Local Storage Only**: Saves images to specified local directory
+- **Image Processing Enabled + No Configuration**: Shows configuration reminder
+
 ## Usage
 
 ### Settings Interface
@@ -102,6 +151,14 @@ Menu options:
 - **GitHub Repository Path**: Configure target repository and path
 - **Show Ribbon Icon**: Toggle sidebar button visibility
 
+#### Image Processing Settings
+
+- **Enable Image Processing**: Master toggle for image upload functionality
+- **Cloud Storage Provider**: Select from Aliyun OSS, Tencent COS, AWS S3, or Cloudflare R2
+- **Storage Credentials**: Configure access keys, bucket, region, and optional CDN URL
+- **Local Image Storage**: Option to keep local copies of uploaded images
+- **Upload Path Template**: Customize remote storage path with date and file variables
+
 #### Batch Operations (Danger Zone)
 
 - **Initialize Repository**: Download all files from remote when Vault is empty
@@ -121,6 +178,7 @@ Menu options:
 ├── main.ts              # Main plugin file
 ├── types.ts             # Type definitions
 ├── github-service.ts    # GitHub API service
+├── cos-service.ts       # Cloud storage service
 ├── file-cache.ts        # File caching service
 ├── i18n-simple.ts       # Internationalization system
 ├── styles.css          # Stylesheet
