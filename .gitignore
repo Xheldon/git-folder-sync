@@ -25,4 +25,8 @@ coverage/
 *.temp
 
 # plugin data (contains sensitive information like tokens)
-data.json 
+data.json
+
+# release files
+release-*/
+*.zip 
