@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.1] - 2024-12-19
 
 ### Changed
+
 - Updated plugin name from "Git Sync" to "Git Folder Sync" for better clarity
 - Consistent naming across all files and documentation
 - Updated internationalization strings
