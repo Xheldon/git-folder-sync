@@ -20,7 +20,7 @@ An Obsidian plugin that supports synchronization with GitHub repositories, built
 ### Manual Installation
 
 1. Download the latest release files
-2. Extract files to your Obsidian plugins directory: `{vault}/.obsidian/plugins/git-sync/`
+2. Extract files to your Obsidian plugins directory: `{vault}/.obsidian/plugins/git-folder-sync/`
 3. Restart Obsidian
 4. Enable the "Git Sync" plugin in settings
 
@@ -30,8 +30,8 @@ An Obsidian plugin that supports synchronization with GitHub repositories, built
 
    ```bash
    cd {vault}/.obsidian/plugins/
-   git clone https://github.com/yourusername/obsidian-git-sync git-sync
-   cd git-sync
+   git clone https://github.com/Xheldon/git-folder-sync git-folder-sync
+   cd git-folder-ync
    ```
 
 2. Install dependencies:
@@ -72,7 +72,7 @@ Repository path formats:
 
 Examples:
 
-- `https://github.com/Xheldon/git-sync/data/_post`
+- `https://github.com/Xheldon/git-folder-sync/data/_post`
 - `username/notes/obsidian-vault`
 
 ### 3. Image Processing Configuration (Optional)

@@ -20,7 +20,7 @@
 ### 手动安装
 
 1. 下载最新的 release 文件
-2. 将文件解压到你的 Obsidian 插件目录：`{vault}/.obsidian/plugins/git-sync/`
+2. 将文件解压到你的 Obsidian 插件目录：`{vault}/.obsidian/plugins/git-folder-sync/`
 3. 重启 Obsidian
 4. 在设置中启用"Git Sync"插件
 
@@ -30,8 +30,8 @@
 
    ```bash
    cd {vault}/.obsidian/plugins/
-   git clone https://github.com/yourusername/obsidian-git-sync git-sync
-   cd git-sync
+   git clone https://github.com/Xheldon/git-folder-sync git-folder-sync
+   cd git-folder-sync
    ```
 
 2. 安装依赖：
@@ -72,7 +72,7 @@
 
 示例：
 
-- `https://github.com/Xheldon/git-sync/data/_post`
+- `https://github.com/Xheldon/git-folder-sync/data/_post`
 - `username/notes/obsidian-vault`
 
 ### 3. 图片处理配置（可选）
