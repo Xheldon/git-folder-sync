@@ -31,7 +31,7 @@ An Obsidian plugin that supports synchronization with GitHub repositories, built
    ```bash
    cd {vault}/.obsidian/plugins/
    git clone https://github.com/Xheldon/git-folder-sync git-folder-sync
-   cd git-folder-ync
+   cd git-folder-sync
    ```
 
 2. Install dependencies:
@@ -72,7 +72,7 @@ Repository path formats:
 
 Examples:
 
-- `https://github.com/Xheldon/git-folder-sync/data/_post`
+- `https://github.com/yourusername/your-repo/docs/notes`
 - `username/notes/obsidian-vault`
 
 ### 3. Image Processing Configuration (Optional)

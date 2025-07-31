@@ -1,4 +1,4 @@
-# Git 同步 Obsidian 插件
+# Git Folder Sync Obsidian 插件
 
 一个支持与 GitHub 仓库同步的 Obsidian 插件，具有现代化界面和热重载开发支持。
 
@@ -72,7 +72,7 @@
 
 示例：
 
-- `https://github.com/Xheldon/git-folder-sync/data/_post`
+- `https://github.com/yourusername/your-repo/docs/notes`
 - `username/notes/obsidian-vault`
 
 ### 3. 图片处理配置（可选）
@@ -134,7 +134,7 @@
 在编辑笔记时，可以通过以下方式访问同步菜单：
 
 1. 使用命令面板：`Ctrl/Cmd + P` → 搜索"显示同步菜单"
-2. 右键点击编辑器 → 选择"Git 同步"
+2. 右键点击编辑器 → 选择"Git Folder Sync"
 3. 状态栏同步按钮（右下角）
 
 菜单选项：
