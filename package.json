@@ -1,7 +1,7 @@
 {
-    "name": "git-folder-sync",
+    "name": "obsidian-git-folder-sync",
     "version": "1.0.0",
-    "description": "Synchronize files in your Obsidian Vault with a specified directory in the designated GitHub repository (rather than the entire repository).",
+    "description": "Synchronize files in your Obsidian Vault with a specified directory in the designated GitHub repository (rather than the entire repository); send your images to cloud storage services.",
     "main": "main.js",
     "scripts": {
         "dev": "node esbuild.config.mjs",
