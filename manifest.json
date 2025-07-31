@@ -1,5 +1,5 @@
 {
-    "id": "obsidian-git-folder-sync",
+    "id": "git-sync",
     "name": "Obsidian Git Folder Sync & Image Upload",
     "version": "1.0.0",
     "minAppVersion": "0.15.0",
