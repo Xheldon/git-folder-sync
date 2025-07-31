@@ -209,7 +209,7 @@ const translations = {
   },
   en: {
     // Settings interface
-    'settings.title': 'Git Sync Settings',
+    	'settings.title': 'Git Folder Sync Settings',
     'settings.language.name': 'Interface Language',
     'settings.language.desc': 'Select the display language for the plugin interface',
     'settings.language.auto': 'Follow Obsidian',
@@ -378,7 +378,7 @@ const translations = {
     'status.bar.synced': 'Synced',
     
     // Plugin info
-    'plugin.name': 'Git Sync',
+    	'plugin.name': 'Git Folder Sync',
     'command.show.sync.menu': 'Show Sync Menu',
     
     // Test URL results

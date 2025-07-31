@@ -5,11 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2024-12-19
+
+### Changed
+- Updated plugin name from "Git Sync" to "Git Folder Sync" for better clarity
+- Consistent naming across all files and documentation
+- Updated internationalization strings
+
 ## [1.0.0] - 2024-12-19
 
 ### Added
 
-- Initial release of Git Sync plugin
+- Initial release of Git Folder Sync plugin
 - Git synchronization with GitHub repositories
 - Support for folder-specific sync (not entire repository)
 - Image upload to cloud storage services:
@@ -29,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Features
 
-- **Git Sync**: Bidirectional synchronization with GitHub
+- **Git Folder Sync**: Bidirectional synchronization with GitHub
 - **Image Processing**: Paste images and automatically upload to cloud storage
 - **Internationalization**: Full Chinese and English support
 - **Mobile Support**: Works on both desktop and mobile devices

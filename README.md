@@ -1,4 +1,4 @@
-# Git Sync Obsidian Plugin
+# Git Folder Sync Obsidian Plugin
 
 An Obsidian plugin that supports synchronization with GitHub repositories, built with a modern interface and hot reload development support.
 
@@ -22,7 +22,7 @@ An Obsidian plugin that supports synchronization with GitHub repositories, built
 1. Download the latest release files
 2. Extract files to your Obsidian plugins directory: `{vault}/.obsidian/plugins/git-folder-sync/`
 3. Restart Obsidian
-4. Enable the "Git Sync" plugin in settings
+4. Enable the "Git Folder Sync" plugin in settings
 
 ### Development Installation
 
@@ -134,7 +134,7 @@ Click the settings icon in the left sidebar to open the configuration interface,
 While editing notes, you can access the sync menu through:
 
 1. Command palette: `Ctrl/Cmd + P` → Search for "Show Sync Menu"
-2. Right-click in editor → Select "Git Sync"
+2. Right-click in editor → Select "Git Folder Sync"
 3. Status bar sync button (bottom right)
 
 Menu options:

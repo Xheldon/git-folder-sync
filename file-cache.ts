@@ -2,7 +2,7 @@ import { FileCache, FileCacheManager } from './types';
 
 export class FileCacheService implements FileCacheManager {
   private cache: Map<string, FileCache> = new Map();
-  private readonly CACHE_KEY = 'git-sync-file-cache';
+  	private readonly CACHE_KEY = 'git-folder-sync-file-cache';
   private readonly DEFAULT_CACHE_AGE = 5 * 60 * 1000; // 5 minutes cache validity period
 
   constructor() {

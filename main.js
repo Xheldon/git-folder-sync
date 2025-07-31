@@ -526,7 +526,7 @@ var init_i18n_simple = __esm({
       },
       en: {
         // Settings interface
-        "settings.title": "Git Sync Settings",
+        "settings.title": "Git Folder Sync Settings",
         "settings.language.name": "Interface Language",
         "settings.language.desc": "Select the display language for the plugin interface",
         "settings.language.auto": "Follow Obsidian",
@@ -686,7 +686,7 @@ var init_i18n_simple = __esm({
         "status.bar.local.modified": "Local modified",
         "status.bar.synced": "Synced",
         // Plugin info
-        "plugin.name": "Git Sync",
+        "plugin.name": "Git Folder Sync",
         "command.show.sync.menu": "Show Sync Menu",
         // Test URL results
         "test.url.user": "User",
@@ -4598,7 +4598,7 @@ var FileCacheService = class {
   // 5 minutes cache validity period
   constructor() {
     this.cache = /* @__PURE__ */ new Map();
-    this.CACHE_KEY = "git-sync-file-cache";
+    this.CACHE_KEY = "git-folder-sync-file-cache";
     this.DEFAULT_CACHE_AGE = 5 * 60 * 1e3;
     this.loadCacheFromStorage();
   }

@@ -22,7 +22,7 @@
 1. 下载最新的 release 文件
 2. 将文件解压到你的 Obsidian 插件目录：`{vault}/.obsidian/plugins/git-folder-sync/`
 3. 重启 Obsidian
-4. 在设置中启用"Git Sync"插件
+4. 在设置中启用"Git Folder Sync"插件
 
 ### 开发安装
 
