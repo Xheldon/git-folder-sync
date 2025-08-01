@@ -355,6 +355,7 @@ var init_i18n_simple = __esm({
         "settings.test.url.name": "\u6D4B\u8BD5\u4ED3\u5E93URL",
         "settings.test.url.desc": "\u9A8C\u8BC1GitHub\u4ED3\u5E93\u8DEF\u5F84\u683C\u5F0F\u662F\u5426\u6B63\u786E",
         "settings.test.url.button": "\u6D4B\u8BD5URL",
+        "settings.test.url.loading": "\u6D4B\u8BD5\u4E2D...",
         "settings.sponsor.name": "\u{1F496} \u652F\u6301\u5F00\u53D1\u8005",
         "settings.sponsor.desc": "\u5982\u679C\u8FD9\u4E2A\u63D2\u4EF6\u5BF9\u4F60\u6709\u5E2E\u52A9\uFF0C\u6B22\u8FCE\u8BF7\u6211\u559D\u676F\u5496\u5561\uFF01\u4F60\u7684\u652F\u6301\u662F\u6211\u7EE7\u7EED\u5F00\u53D1\u7684\u52A8\u529B\u3002",
         "settings.sponsor.button": "\u{1F49D} PayPal \u8D5E\u52A9",
@@ -426,6 +427,7 @@ var init_i18n_simple = __esm({
         "notice.settings.saved": "\u8BBE\u7F6E\u5DF2\u4FDD\u5B58",
         "notice.config.required": "\u8BF7\u5148\u914D\u7F6EGitHub Token\u548C\u4ED3\u5E93\u5730\u5740",
         "notice.url.required": "\u8BF7\u5148\u8F93\u5165GitHub\u4ED3\u5E93\u8DEF\u5F84",
+        "notice.token.required": "\u8BF7\u5148\u586B\u5199GitHub Token",
         "notice.url.test.success": "URL\u683C\u5F0F\u6B63\u786E\uFF01",
         "notice.url.test.failed": "URL\u683C\u5F0F\u4E0D\u6B63\u786E\uFF0C\u8BF7\u68C0\u67E5\u683C\u5F0F\u3002\u8BE6\u60C5\u8BF7\u67E5\u770B\u63A7\u5236\u53F0\u3002",
         "notice.init.error": "\u521D\u59CB\u5316\u4ED3\u5E93\u65F6\u53D1\u751F\u9519\u8BEF",
@@ -484,6 +486,7 @@ var init_i18n_simple = __esm({
         "github.api.rate.limit.exceeded.short": "GitHub API\u8C03\u7528\u6B21\u6570\u5DF2\u8FBE\u4E0A\u9650\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5",
         "github.api.file.upload.success": "\u6587\u4EF6\u4E0A\u4F20\u6210\u529F",
         "github.api.all.files.download.success": "\u6240\u6709\u6587\u4EF6\u4E0B\u8F7D\u6210\u529F",
+        "github.api.connection.test.success": "\u2705 \u8FDE\u63A5\u6D4B\u8BD5\u6210\u529F\uFF01\n\u{1F464} \u7528\u6237: {user}\n\u{1F4C1} \u4ED3\u5E93: {repo}\n\u{1F511} \u6743\u9650: {permissions}",
         // Status bar
         "status.bar.checking": "\u68C0\u67E5\u4E2D...",
         "status.bar.sync": "\u540C\u6B65",
@@ -547,6 +550,7 @@ var init_i18n_simple = __esm({
         "settings.test.url.name": "Test Repository URL",
         "settings.test.url.desc": "Verify if GitHub repository path format is correct",
         "settings.test.url.button": "Test URL",
+        "settings.test.url.loading": "Testing...",
         "settings.sponsor.name": "\u{1F496} Support Developer",
         "settings.sponsor.desc": "If this plugin helps you, consider buying me a coffee! Your support motivates me to continue development.",
         "settings.sponsor.button": "\u{1F49D} PayPal Sponsor",
@@ -617,6 +621,7 @@ var init_i18n_simple = __esm({
         "notice.settings.saved": "Settings saved",
         "notice.config.required": "Please configure GitHub Token and repository address first",
         "notice.url.required": "Please enter GitHub repository path first",
+        "notice.token.required": "Please enter GitHub Token first",
         "notice.url.test.success": "URL format is correct!",
         "notice.url.test.failed": "URL format is incorrect, please check format. See console for details.",
         "notice.init.error": "Error occurred during repository initialization",
@@ -675,6 +680,7 @@ var init_i18n_simple = __esm({
         "github.api.rate.limit.exceeded.short": "GitHub API rate limit exceeded, please retry later",
         "github.api.file.upload.success": "File uploaded successfully",
         "github.api.all.files.download.success": "All files downloaded successfully",
+        "github.api.connection.test.success": "\u2705 Connection test successful!\n\u{1F464} User: {user}\n\u{1F4C1} Repository: {repo}\n\u{1F511} Permissions: {permissions}",
         // Status bar
         "status.bar.checking": "Checking...",
         "status.bar.sync": "Sync",
@@ -870,13 +876,6 @@ var init_cos_service = __esm({
         const url = `https://${this.config.bucket}.cos.${this.config.region}.myqcloud.com/${remotePath}`;
         const date = new Date().toUTCString();
         const signature = await this.generateTencentSignature("PUT", remotePath, date, file.type);
-        console.log("Tencent COS upload debug:", {
-          url,
-          remotePath,
-          signature: signature.substring(0, 50) + "...",
-          fileSize: file.size,
-          fileType: file.type
-        });
         const fileBuffer = await file.arrayBuffer();
         const response = await (0, import_obsidian2.requestUrl)({
           url,
@@ -4395,13 +4394,11 @@ var GitHubService = class {
     }
   }
   parseRepositoryUrl(url) {
-    console.log("Parsing repository URL:", url);
     if (!url) {
       console.error("URL is empty");
       return null;
     }
     const cleanUrl = url.trim();
-    console.log("Cleaned URL:", cleanUrl);
     let match;
     match = cleanUrl.match(/^https:\/\/github\.com\/([^\/]+)\/([^\/]+)(?:\/(.*))?$/);
     if (match) {
@@ -4410,7 +4407,6 @@ var GitHubService = class {
         repo: match[2],
         path: match[3] || ""
       };
-      console.log("Parse result (standard GitHub URL):", result);
       return result;
     }
     match = cleanUrl.match(/^([^\/]+)\/([^\/]+)(?:\/(.*))?$/);
@@ -4420,7 +4416,6 @@ var GitHubService = class {
         repo: match[2],
         path: match[3] || ""
       };
-      console.log("Parse result (short format):", result);
       return result;
     }
     console.error("Unable to parse URL format:", cleanUrl);
@@ -4428,6 +4423,52 @@ var GitHubService = class {
     console.error("1. https://github.com/username/repo/path (standard format)");
     console.error("2. username/repo/path (short format)");
     return null;
+  }
+  /**
+   * Test GitHub token and repository access
+   */
+  async testConnection(repositoryUrl) {
+    var _a;
+    const repoInfo = this.parseRepositoryUrl(repositoryUrl);
+    if (!repoInfo) {
+      return { success: false, message: t("github.api.invalid.url.format") };
+    }
+    if (!await this.beforeApiCall()) {
+      return { success: false, message: t("github.api.rate.limit.exceeded.short") };
+    }
+    try {
+      const userResponse = await this.octokit.rest.users.getAuthenticated();
+      const repoResponse = await this.octokit.rest.repos.get({
+        owner: repoInfo.owner,
+        repo: repoInfo.repo
+      });
+      if (repoInfo.path) {
+        try {
+          await this.octokit.rest.repos.getContent({
+            owner: repoInfo.owner,
+            repo: repoInfo.repo,
+            path: repoInfo.path
+          });
+        } catch (error) {
+          if (error.status !== 404) {
+            throw error;
+          }
+        }
+      }
+      return {
+        success: true,
+        message: t("github.api.connection.test.success", {
+          user: userResponse.data.login,
+          repo: `${repoInfo.owner}/${repoInfo.repo}`,
+          permissions: ((_a = repoResponse.data.permissions) == null ? void 0 : _a.push) ? "read/write" : "read-only"
+        }),
+        repoInfo
+      };
+    } catch (error) {
+      console.error("GitHub connection test failed:", error);
+      const errorInfo = this.handleGitHubError(error);
+      return { success: false, message: errorInfo.message };
+    }
   }
   async uploadFile(repositoryUrl, filePath, content) {
     const repoInfo = this.parseRepositoryUrl(repositoryUrl);
@@ -4672,7 +4713,6 @@ var FileCacheService = class {
   clearCache() {
     this.cache.clear();
     localStorage.removeItem(this.CACHE_KEY);
-    console.log("All file caches cleared");
   }
   /**
    * Check if cache is valid
@@ -4762,6 +4802,11 @@ var FileCacheService = class {
 
 // main.ts
 init_cos_service();
+function debugLog(...args) {
+  if (true) {
+    console.log("[Git Folder Sync]", ...args);
+  }
+}
 var GitSyncPlugin = class extends import_obsidian3.Plugin {
   constructor() {
     super(...arguments);
@@ -4793,7 +4838,7 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
         if (file.path.endsWith(".md") && this.currentFile && file.path === this.currentFile.path) {
-          console.log(`Detected file modification: ${file.path}`);
+          debugLog(`Detected file modification: ${file.path}`);
           if (file instanceof import_obsidian3.TFile) {
             this.onFileContentModified(file);
           }
@@ -4991,7 +5036,7 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
   async forceSyncLocalToRemote() {
     try {
       const files = this.getAllVaultFiles();
-      console.log("Found files:", files.map((f) => f.path));
+      debugLog("Found files:", files.map((f) => f.path));
       if (files.length === 0) {
         return { success: false, message: t("no.syncable.files.in.vault") };
       }
@@ -5007,7 +5052,7 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
           );
           if (result.success) {
             processed++;
-            console.log(`Successfully synced file: ${file.path}`);
+            debugLog(`Successfully synced file: ${file.path}`);
             await this.fileCacheService.updateFileCache(
               file.path,
               file.path,
@@ -5038,25 +5083,25 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
   }
   isVaultEmpty() {
     const files = this.app.vault.getFiles();
-    return files.filter((file) => !file.path.startsWith(".obsidian")).length === 0;
+    return files.filter((file) => !file.path.startsWith(this.app.vault.configDir)).length === 0;
   }
   getAllVaultFiles() {
     const allFiles = this.app.vault.getFiles();
-    console.log("All files in vault:", allFiles.map((f) => f.path));
+    debugLog("All files in vault:", allFiles.map((f) => f.path));
     const filteredFiles = allFiles.filter((file) => {
-      if (file.path.startsWith(".obsidian")) {
+      if (file.path.startsWith(this.app.vault.configDir)) {
         return false;
       }
       if (this.settings.keepLocalImages && this.settings.localImagePath) {
         const normalizedImagePath = this.settings.localImagePath.replace(/^\/+|\/+$/g, "");
         if (normalizedImagePath && file.path.startsWith(normalizedImagePath + "/")) {
-          console.log(`Excluding file from sync (in image directory): ${file.path}`);
+          debugLog(`Excluding file from sync (in image directory): ${file.path}`);
           return false;
         }
       }
       return true;
     });
-    console.log("Filtered files:", filteredFiles.map((f) => f.path));
+    debugLog("Filtered files:", filteredFiles.map((f) => f.path));
     return filteredFiles;
   }
   async createFileInVault(path, content) {
@@ -5077,11 +5122,13 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile || !activeFile.path.endsWith(".md")) {
       this.statusBarEl.empty();
-      this.statusBarEl.style.display = "none";
+      this.statusBarEl.removeClass("visible");
+      this.statusBarEl.addClass("hidden");
       return;
     }
     this.currentFile = activeFile;
-    this.statusBarEl.style.display = "flex";
+    this.statusBarEl.removeClass("hidden");
+    this.statusBarEl.addClass("visible");
     this.statusBarEl.empty();
     const statusText = this.statusBarEl.createEl("span", {
       cls: "git-sync-status-text",
@@ -5095,27 +5142,27 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
       try {
         const cache = this.fileCacheService.getFileCache(activeFile.path);
         if (cache) {
-          console.log(`Using cached data to display file status: ${activeFile.path}`);
+          debugLog(`Using cached data to display file status: ${activeFile.path}`);
           if (cache.isPublished) {
             const date = new Date(cache.lastModified);
             let statusMsg = t("status.bar.last.modified", { date: this.formatDate(date) });
             if (!cache.isSynced) {
               statusMsg += ` (${t("status.bar.local.modified")})`;
-              statusText.style.color = "var(--color-orange)";
+              statusText.addClass("modified");
             } else {
               statusMsg += ` (${t("status.bar.synced")})`;
-              statusText.style.color = "var(--color-green)";
+              statusText.addClass("synced");
             }
             statusText.textContent = statusMsg;
           } else {
             statusText.textContent = t("status.bar.not.published");
-            statusText.style.color = "var(--text-muted)";
+            statusText.addClass("not-published");
           }
           if (!this.fileCacheService.isCacheValid(cache, 4 * 60 * 1e3)) {
             this.refreshFileCache(activeFile.path).catch(console.error);
           }
         } else {
-          console.log(`No cache, fetching file status from GitHub: ${activeFile.path}`);
+          debugLog(`No cache, fetching file status from GitHub: ${activeFile.path}`);
           await this.fetchAndCacheFileStatus(activeFile.path, statusText);
         }
       } catch (error) {
@@ -5147,7 +5194,7 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
         const content = await this.app.vault.read(file);
         const currentHash = FileCacheService.calculateContentHash(content);
         if (currentHash !== cache.contentHash) {
-          console.log(`File content modified: ${file.path}`);
+          debugLog(`File content modified: ${file.path}`);
           const updatedCache = {
             ...cache,
             contentHash: currentHash,
@@ -5181,7 +5228,7 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
         if (result.exists && result.lastModified) {
           const date = new Date(result.lastModified);
           statusText.textContent = t("status.bar.last.modified", { date: this.formatDate(date) });
-          statusText.style.color = "var(--text-normal)";
+          statusText.addClass("normal");
           await this.fileCacheService.updateFileCache(
             filePath,
             filePath,
@@ -5194,7 +5241,7 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
           );
         } else {
           statusText.textContent = t("status.bar.not.published");
-          statusText.style.color = "var(--text-muted)";
+          statusText.addClass("not-published");
           await this.fileCacheService.updateFileCache(
             filePath,
             filePath,
@@ -5217,7 +5264,7 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
    */
   async refreshFileCache(filePath) {
     try {
-      console.log(`Asynchronously refreshing file cache: ${filePath}`);
+      debugLog(`Asynchronously refreshing file cache: ${filePath}`);
       const result = await this.githubService.getFileLastModified(
         this.settings.repositoryUrl,
         filePath
@@ -5232,7 +5279,7 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
           result.exists || false,
           this.app.vault
         );
-        console.log(`File cache refreshed: ${filePath}`);
+        debugLog(`File cache refreshed: ${filePath}`);
       }
     } catch (error) {
       console.error("Failed to refresh file cache:", error);
@@ -5400,7 +5447,7 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
         }
         uploadNotice.hide();
         new import_obsidian3.Notice(t("cos.upload.success"));
-        console.log("Image uploaded successfully:", uploadResult.url);
+        debugLog("Image uploaded successfully:", uploadResult.url);
       } else {
         throw new Error(uploadResult.message || "Upload failed");
       }
@@ -5439,7 +5486,7 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
       const cursorPos = editor.getCursor();
       editor.replaceRange(imageMarkdown, cursorPos);
       new import_obsidian3.Notice(t("cos.upload.success"));
-      console.log("Image saved locally:", localPath);
+      debugLog("Image saved locally:", localPath);
     } catch (error) {
       new import_obsidian3.Notice(t("cos.upload.failed", { error: error.message }));
       console.error("Local image save failed:", error);
@@ -5463,7 +5510,7 @@ var GitSyncPlugin = class extends import_obsidian3.Plugin {
       }
       const arrayBuffer = await file.arrayBuffer();
       await this.app.vault.createBinary(localPath, arrayBuffer);
-      console.log("Local image copy saved:", localPath);
+      debugLog("Local image copy saved:", localPath);
     } catch (error) {
       console.warn("Failed to save local image copy:", error);
     }
@@ -5492,11 +5539,13 @@ var GitSyncSettingTab = class extends import_obsidian3.PluginSettingTab {
     });
     new import_obsidian3.Setting(containerEl).setName(t("settings.github.token.name")).setDesc(t("settings.github.token.desc")).addText((text) => text.setPlaceholder(t("settings.github.token.placeholder")).setValue(this.plugin.settings.githubToken).onChange(async (value) => {
       this.plugin.settings.githubToken = value;
+      await this.plugin.saveSettings();
     }));
     let pathInfoEl;
     new import_obsidian3.Setting(containerEl).setName(t("settings.github.repo.name")).setDesc(t("settings.github.repo.desc")).addText((text) => text.setPlaceholder(t("settings.github.repo.placeholder")).setValue(this.plugin.settings.repositoryUrl).onChange(async (value) => {
       this.plugin.settings.repositoryUrl = value;
       this.updatePathInfo(pathInfoEl, value);
+      await this.plugin.saveSettings();
     }));
     pathInfoEl = containerEl.createEl("div", {
       cls: "setting-item-description git-sync-path-info",
@@ -5507,18 +5556,29 @@ var GitSyncSettingTab = class extends import_obsidian3.PluginSettingTab {
         new import_obsidian3.Notice(t("notice.url.required"));
         return;
       }
-      console.log("=== Testing Repository URL ===");
-      console.log("Input URL:", this.plugin.settings.repositoryUrl);
-      const testResult = this.plugin.githubService.parseRepositoryUrl(this.plugin.settings.repositoryUrl);
-      if (testResult) {
-        console.log("URL parsing successful:", testResult);
-        new import_obsidian3.Notice(`${t("notice.url.test.success")}
-${t("test.url.user")}: ${testResult.owner}
-${t("test.url.repo")}: ${testResult.repo}
-${t("test.url.path")}: ${testResult.path || t("test.url.root")}`, 6e3);
-      } else {
-        console.log("URL parsing failed");
-        new import_obsidian3.Notice(t("notice.url.test.failed"), 6e3);
+      if (!this.plugin.settings.githubToken) {
+        new import_obsidian3.Notice(t("notice.token.required"));
+        return;
+      }
+      button.setButtonText(t("settings.test.url.loading"));
+      button.setDisabled(true);
+      try {
+        debugLog("=== Testing GitHub Connection ===");
+        debugLog("Input URL:", this.plugin.settings.repositoryUrl);
+        const testResult = await this.plugin.githubService.testConnection(this.plugin.settings.repositoryUrl);
+        if (testResult.success) {
+          debugLog("Connection test successful:", testResult);
+          new import_obsidian3.Notice(testResult.message, 8e3);
+        } else {
+          debugLog("Connection test failed:", testResult.message);
+          new import_obsidian3.Notice(testResult.message, 6e3);
+        }
+      } catch (error) {
+        debugLog("Connection test error:", error);
+        new import_obsidian3.Notice(t("github.api.operation.failed", { message: error.message }), 6e3);
+      } finally {
+        button.setButtonText(t("settings.test.url.button"));
+        button.setDisabled(false);
       }
     }));
     new import_obsidian3.Setting(containerEl).setName(t("settings.ribbon.name")).setDesc(t("settings.ribbon.desc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.showRibbonIcon).onChange(async (value) => {
@@ -5746,14 +5806,10 @@ ${t("test.url.path")}: ${testResult.path || t("test.url.root")}`, 6e3);
       cls: getActualLanguage() === "zh" ? "setting-item-control git-sync-sponsor-control" : "setting-item-control"
     });
     const sponsorButton = sponsorControl.createEl("a", {
-      cls: "mod-cta",
+      cls: "mod-cta git-sync-sponsor-button",
       text: t("settings.sponsor.button"),
       href: "https://paypal.me/xheldoncao"
     });
-    sponsorButton.style.textDecoration = "none";
-    sponsorButton.style.padding = "6px 12px";
-    sponsorButton.style.borderRadius = "3px";
-    sponsorButton.style.display = "inline-block";
     if (getActualLanguage() === "zh") {
       const chinaSponsorContainer = sponsorControl.createEl("div", {
         cls: "git-sync-china-sponsor"
@@ -5765,13 +5821,11 @@ ${t("test.url.path")}: ${testResult.path || t("test.url.root")}`, 6e3);
         text: "https://www.xheldon.com/donate/",
         href: "https://www.xheldon.com/donate/"
       });
-      chinaLink.style.color = "var(--text-accent)";
-      chinaLink.style.textDecoration = "none";
     }
   }
   isVaultEmpty() {
     const files = this.app.vault.getFiles();
-    return files.filter((file) => !file.path.startsWith(".obsidian")).length === 0;
+    return files.filter((file) => !file.path.startsWith(this.app.vault.configDir)).length === 0;
   }
   updatePathInfo(el, value) {
     if (el) {

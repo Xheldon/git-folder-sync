@@ -26,6 +26,7 @@ const translations = {
     'settings.test.url.name': '测试仓库URL',
     'settings.test.url.desc': '验证GitHub仓库路径格式是否正确',
     'settings.test.url.button': '测试URL',
+  'settings.test.url.loading': '测试中...',
     'settings.sponsor.name': '💖 支持开发者',
     'settings.sponsor.desc': '如果这个插件对你有帮助，欢迎请我喝杯咖啡！你的支持是我继续开发的动力。',
     'settings.sponsor.button': '💝 PayPal 赞助',
@@ -99,6 +100,7 @@ const translations = {
     'notice.settings.saved': '设置已保存',
     'notice.config.required': '请先配置GitHub Token和仓库地址',
     'notice.url.required': '请先输入GitHub仓库路径',
+  'notice.token.required': '请先填写GitHub Token',
     'notice.url.test.success': 'URL格式正确！',
     'notice.url.test.failed': 'URL格式不正确，请检查格式。详情请查看控制台。',
     'notice.init.error': '初始化仓库时发生错误',
@@ -162,6 +164,7 @@ const translations = {
     'github.api.rate.limit.exceeded.short': 'GitHub API调用次数已达上限，请稍后重试',
     'github.api.file.upload.success': '文件上传成功',
     'github.api.all.files.download.success': '所有文件下载成功',
+  'github.api.connection.test.success': '✅ 连接测试成功！\n👤 用户: {user}\n📁 仓库: {repo}\n🔑 权限: {permissions}',
     
     // Status bar
     'status.bar.checking': '检查中...',
@@ -230,6 +233,7 @@ const translations = {
     'settings.test.url.name': 'Test Repository URL',
     'settings.test.url.desc': 'Verify if GitHub repository path format is correct',
     'settings.test.url.button': 'Test URL',
+  'settings.test.url.loading': 'Testing...',
     'settings.sponsor.name': '💖 Support Developer',
     'settings.sponsor.desc': 'If this plugin helps you, consider buying me a coffee! Your support motivates me to continue development.',
     'settings.sponsor.button': '💝 PayPal Sponsor',
@@ -302,6 +306,7 @@ const translations = {
     'notice.settings.saved': 'Settings saved',
     'notice.config.required': 'Please configure GitHub Token and repository address first',
     'notice.url.required': 'Please enter GitHub repository path first',
+  'notice.token.required': 'Please enter GitHub Token first',
     'notice.url.test.success': 'URL format is correct!',
     'notice.url.test.failed': 'URL format is incorrect, please check format. See console for details.',
     'notice.init.error': 'Error occurred during repository initialization',
@@ -365,6 +370,7 @@ const translations = {
     'github.api.rate.limit.exceeded.short': 'GitHub API rate limit exceeded, please retry later',
     'github.api.file.upload.success': 'File uploaded successfully',
     'github.api.all.files.download.success': 'All files downloaded successfully',
+  'github.api.connection.test.success': '✅ Connection test successful!\n👤 User: {user}\n📁 Repository: {repo}\n🔑 Permissions: {permissions}',
     
     // Status bar
     'status.bar.checking': 'Checking...',
@@ -415,12 +421,28 @@ const translations = {
 // Current language
 let currentLanguage: Language = 'auto';
 
+// Extended window interface for type safety
+interface ExtendedWindow extends Window {
+  app?: {
+    vault?: {
+      adapter?: {
+        path?: {
+          locale?: string;
+        };
+      };
+    };
+  };
+  moment?: {
+    locale(): string;
+  };
+}
+
 // Detect Obsidian's language settings
 function detectObsidianLanguage(): 'zh' | 'en' {
   // Check Obsidian's language settings - more accurate method
   const obsidianLang = localStorage.getItem('language') || 
-                      (window as any).app?.vault?.adapter?.path?.locale ||
-                      (window as any).moment?.locale();
+                      (window as ExtendedWindow).app?.vault?.adapter?.path?.locale ||
+                      (window as ExtendedWindow).moment?.locale();
   
   // Check browser language
   const browserLang = navigator.language || navigator.languages?.[0] || 'en';

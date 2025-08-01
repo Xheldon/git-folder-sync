@@ -1,9 +1,29 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, Menu, TFolder } from 'obsidian';
+
+// Extended types for better type safety
+interface ExtendedApp extends App {
+	setting: {
+		open(): void;
+		openTabById(id: string): void;
+	};
+}
+
+interface ExtendedEditor extends Editor {
+	containerEl?: HTMLElement;
+}
 import { GitSyncSettings, DEFAULT_SETTINGS, SyncResult, CosConfig, ImagePasteContext, CosProviderConfig } from './types';
 import { GitHubService } from './github-service';
 import { setLanguage, t, getSupportedLanguages, getActualLanguage } from './i18n-simple';
 import { FileCacheService } from './file-cache';
 import { CosService, parseImagePath } from './cos-service';
+
+// Debug logging function - only logs in development mode
+function debugLog(...args: any[]): void {
+	// Only log in development mode (when plugin is loaded from file system)
+	if (process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost') {
+		console.log('[Git Folder Sync]', ...args);
+	}
+}
 
 export default class GitSyncPlugin extends Plugin {
 	settings: GitSyncSettings;
@@ -51,7 +71,7 @@ export default class GitSyncPlugin extends Plugin {
 			this.app.vault.on('modify', (file) => {
 				// Only handle markdown files that are currently open
 				if (file.path.endsWith('.md') && this.currentFile && file.path === this.currentFile.path) {
-					console.log(`Detected file modification: ${file.path}`);
+					debugLog(`Detected file modification: ${file.path}`);
 					// Type conversion to TFile
 					if (file instanceof TFile) {
 						this.onFileContentModified(file);
@@ -127,10 +147,10 @@ export default class GitSyncPlugin extends Plugin {
 
 		// Add button based on settings
 		if (this.settings.showRibbonIcon) {
-			this.ribbonIconEl = this.addRibbonIcon('settings', t('settings.title'), (evt: MouseEvent) => {
+							this.ribbonIconEl = this.addRibbonIcon('settings', t('settings.title'), (evt: MouseEvent) => {
 				// Directly open plugin settings interface
-				(this.app as any).setting.open();
-				(this.app as any).setting.openTabById(this.manifest.id);
+				(this.app as ExtendedApp).setting.open();
+				(this.app as ExtendedApp).setting.openTabById(this.manifest.id);
 			});
 		}
 	}
@@ -156,7 +176,7 @@ export default class GitSyncPlugin extends Plugin {
 				});
 		});
 
-		const rect = (editor as any).containerEl?.getBoundingClientRect();
+		const rect = (editor as ExtendedEditor).containerEl?.getBoundingClientRect();
 		if (rect) {
 			menu.showAtPosition({ x: rect.right - 100, y: rect.top + 50 });
 		} else {
@@ -299,7 +319,7 @@ export default class GitSyncPlugin extends Plugin {
 	async forceSyncLocalToRemote(): Promise<SyncResult> {
 		try {
 			const files = this.getAllVaultFiles();
-			console.log('Found files:', files.map(f => f.path));
+			debugLog('Found files:', files.map(f => f.path));
 			
 			if (files.length === 0) {
 				return { success: false, message: t('no.syncable.files.in.vault') };
@@ -319,7 +339,7 @@ export default class GitSyncPlugin extends Plugin {
 					
 					if (result.success) {
 						processed++;
-						console.log(`Successfully synced file: ${file.path}`);
+						debugLog(`Successfully synced file: ${file.path}`);
 						
 						// Update cache immediately - file synced to remote
 						await this.fileCacheService.updateFileCache(
@@ -356,17 +376,17 @@ export default class GitSyncPlugin extends Plugin {
 
 	private isVaultEmpty(): boolean {
 		const files = this.app.vault.getFiles();
-		return files.filter(file => !file.path.startsWith('.obsidian')).length === 0;
+		return files.filter(file => !file.path.startsWith(this.app.vault.configDir)).length === 0;
 	}
 
 	private getAllVaultFiles(): TFile[] {
 		const allFiles = this.app.vault.getFiles();
-		console.log('All files in vault:', allFiles.map(f => f.path));
+		debugLog('All files in vault:', allFiles.map(f => f.path));
 		
-		// Filter out files in .obsidian folder and local image path (if configured)
+		// Filter out files in config folder and local image path (if configured)
 		const filteredFiles = allFiles.filter(file => {
-			// Always exclude .obsidian folder
-			if (file.path.startsWith('.obsidian')) {
+			// Always exclude Obsidian config folder
+			if (file.path.startsWith(this.app.vault.configDir)) {
 				return false;
 			}
 			
@@ -374,7 +394,7 @@ export default class GitSyncPlugin extends Plugin {
 			if (this.settings.keepLocalImages && this.settings.localImagePath) {
 				const normalizedImagePath = this.settings.localImagePath.replace(/^\/+|\/+$/g, ''); // Remove leading/trailing slashes
 				if (normalizedImagePath && file.path.startsWith(normalizedImagePath + '/')) {
-					console.log(`Excluding file from sync (in image directory): ${file.path}`);
+					debugLog(`Excluding file from sync (in image directory): ${file.path}`);
 					return false;
 				}
 			}
@@ -382,7 +402,7 @@ export default class GitSyncPlugin extends Plugin {
 			return true;
 		});
 		
-		console.log('Filtered files:', filteredFiles.map(f => f.path));
+		debugLog('Filtered files:', filteredFiles.map(f => f.path));
 		
 		return filteredFiles;
 	}
@@ -407,12 +427,14 @@ export default class GitSyncPlugin extends Plugin {
 		const activeFile = this.app.workspace.getActiveFile();
 		if (!activeFile || !activeFile.path.endsWith('.md')) {
 			this.statusBarEl.empty();
-			this.statusBarEl.style.display = 'none';
+			this.statusBarEl.removeClass('visible');
+			this.statusBarEl.addClass('hidden');
 			return;
 		}
 
 		this.currentFile = activeFile;
-		this.statusBarEl.style.display = 'flex';
+		this.statusBarEl.removeClass('hidden');
+			this.statusBarEl.addClass('visible');
 		this.statusBarEl.empty();
 
 		// Create status text
@@ -435,25 +457,25 @@ export default class GitSyncPlugin extends Plugin {
 				
 				if (cache) {
 					// Use cached data
-					console.log(`Using cached data to display file status: ${activeFile.path}`);
+					debugLog(`Using cached data to display file status: ${activeFile.path}`);
 					
 					if (cache.isPublished) {
 						const date = new Date(cache.lastModified);
 						let statusMsg = t('status.bar.last.modified', { date: this.formatDate(date) });
 						
-											// Use isSynced status from cache directly, no need to recalculate hash
-					if (!cache.isSynced) {
-							statusMsg += ` (${t('status.bar.local.modified')})`;
-							statusText.style.color = 'var(--color-orange)';
-						} else {
-							statusMsg += ` (${t('status.bar.synced')})`;
-							statusText.style.color = 'var(--color-green)';
-						}
+																	// Use isSynced status from cache directly, no need to recalculate hash
+				if (!cache.isSynced) {
+						statusMsg += ` (${t('status.bar.local.modified')})`;
+						statusText.addClass('modified');
+					} else {
+						statusMsg += ` (${t('status.bar.synced')})`;
+						statusText.addClass('synced');
+					}
 						
 						statusText.textContent = statusMsg;
 					} else {
 						statusText.textContent = t('status.bar.not.published');
-						statusText.style.color = 'var(--text-muted)';
+						statusText.addClass('not-published');
 					}
 					
 					// Asynchronously update cache if it's about to expire
@@ -462,7 +484,7 @@ export default class GitSyncPlugin extends Plugin {
 					}
 				} else {
 					// No cache, need to fetch from GitHub
-					console.log(`No cache, fetching file status from GitHub: ${activeFile.path}`);
+					debugLog(`No cache, fetching file status from GitHub: ${activeFile.path}`);
 					await this.fetchAndCacheFileStatus(activeFile.path, statusText);
 				}
 			} catch (error) {
@@ -505,7 +527,7 @@ export default class GitSyncPlugin extends Plugin {
 				const currentHash = FileCacheService.calculateContentHash(content);
 				
 				if (currentHash !== cache.contentHash) {
-					console.log(`File content modified: ${file.path}`);
+					debugLog(`File content modified: ${file.path}`);
 					
 					// Update content hash and sync status in cache
 					const updatedCache = {
@@ -548,7 +570,7 @@ export default class GitSyncPlugin extends Plugin {
 				if (result.exists && result.lastModified) {
 					const date = new Date(result.lastModified);
 					statusText.textContent = t('status.bar.last.modified', { date: this.formatDate(date) });
-					statusText.style.color = 'var(--text-normal)';
+					statusText.addClass('normal');
 					
 					// Update cache
 					await this.fileCacheService.updateFileCache(
@@ -561,7 +583,7 @@ export default class GitSyncPlugin extends Plugin {
 					);
 				} else {
 					statusText.textContent = t('status.bar.not.published');
-					statusText.style.color = 'var(--text-muted)';
+					statusText.addClass('not-published');
 					
 					// Cache unpublished status
 					await this.fileCacheService.updateFileCache(
@@ -587,7 +609,7 @@ export default class GitSyncPlugin extends Plugin {
 	 */
 	private async refreshFileCache(filePath: string) {
 		try {
-			console.log(`Asynchronously refreshing file cache: ${filePath}`);
+			debugLog(`Asynchronously refreshing file cache: ${filePath}`);
 			
 			// Lightweight rate limit check - temporarily skip, let GitHub API handle rate limits itself
 
@@ -605,7 +627,7 @@ export default class GitSyncPlugin extends Plugin {
 					result.exists || false,
 					this.app.vault
 				);
-				console.log(`File cache refreshed: ${filePath}`);
+				debugLog(`File cache refreshed: ${filePath}`);
 			}
 		} catch (error) {
 			console.error('Failed to refresh file cache:', error);
@@ -838,7 +860,7 @@ export default class GitSyncPlugin extends Plugin {
 				uploadNotice.hide();
 				new Notice(t('cos.upload.success'));
 
-				console.log('Image uploaded successfully:', uploadResult.url);
+				debugLog('Image uploaded successfully:', uploadResult.url);
 			} else {
 				throw new Error(uploadResult.message || 'Upload failed');
 			}
@@ -895,7 +917,7 @@ export default class GitSyncPlugin extends Plugin {
 			editor.replaceRange(imageMarkdown, cursorPos);
 
 			new Notice(t('cos.upload.success'));
-			console.log('Image saved locally:', localPath);
+			debugLog('Image saved locally:', localPath);
 		} catch (error) {
 			new Notice(t('cos.upload.failed', { error: error.message }));
 			console.error('Local image save failed:', error);
@@ -928,7 +950,7 @@ export default class GitSyncPlugin extends Plugin {
 			// Save file to vault
 			await this.app.vault.createBinary(localPath, arrayBuffer);
 			
-			console.log('Local image copy saved:', localPath);
+			debugLog('Local image copy saved:', localPath);
 		} catch (error) {
 			console.warn('Failed to save local image copy:', error);
 		}
@@ -974,6 +996,7 @@ class GitSyncSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.githubToken)
 				.onChange(async (value) => {
 					this.plugin.settings.githubToken = value;
+					await this.plugin.saveSettings();
 				}));
 
 		let pathInfoEl: HTMLElement;
@@ -986,6 +1009,7 @@ class GitSyncSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.repositoryUrl = value;
 					this.updatePathInfo(pathInfoEl, value);
+					await this.plugin.saveSettings();
 				}));
 
 		// Add path description display area
@@ -1006,18 +1030,36 @@ class GitSyncSettingTab extends PluginSettingTab {
 						return;
 					}
 
-					console.log('=== Testing Repository URL ===');
-					console.log('Input URL:', this.plugin.settings.repositoryUrl);
-					
-					// Test URL parsing
-					const testResult = this.plugin.githubService.parseRepositoryUrl(this.plugin.settings.repositoryUrl);
-					
-					if (testResult) {
-						console.log('URL parsing successful:', testResult);
-						new Notice(`${t('notice.url.test.success')}\n${t('test.url.user')}: ${testResult.owner}\n${t('test.url.repo')}: ${testResult.repo}\n${t('test.url.path')}: ${testResult.path || t('test.url.root')}`, 6000);
-					} else {
-						console.log('URL parsing failed');
-						new Notice(t('notice.url.test.failed'), 6000);
+					if (!this.plugin.settings.githubToken) {
+						new Notice(t('notice.token.required'));
+						return;
+					}
+
+					// Set loading state
+					button.setButtonText(t('settings.test.url.loading'));
+					button.setDisabled(true);
+
+					try {
+						debugLog('=== Testing GitHub Connection ===');
+						debugLog('Input URL:', this.plugin.settings.repositoryUrl);
+						
+						// Test connection (includes URL parsing, token validation, and repository access)
+						const testResult = await this.plugin.githubService.testConnection(this.plugin.settings.repositoryUrl);
+						
+						if (testResult.success) {
+							debugLog('Connection test successful:', testResult);
+							new Notice(testResult.message, 8000);
+						} else {
+							debugLog('Connection test failed:', testResult.message);
+							new Notice(testResult.message, 6000);
+						}
+					} catch (error) {
+						debugLog('Connection test error:', error);
+						new Notice(t('github.api.operation.failed', { message: error.message }), 6000);
+					} finally {
+						// Reset button state
+						button.setButtonText(t('settings.test.url.button'));
+						button.setDisabled(false);
 					}
 				}));
 
@@ -1421,14 +1463,10 @@ class GitSyncSettingTab extends PluginSettingTab {
 		
 		// PayPal sponsor button
 		const sponsorButton = sponsorControl.createEl('a', {
-			cls: 'mod-cta',
+			cls: 'mod-cta git-sync-sponsor-button',
 			text: t('settings.sponsor.button'),
 			href: 'https://paypal.me/xheldoncao'
 		});
-		sponsorButton.style.textDecoration = 'none';
-		sponsorButton.style.padding = '6px 12px';
-		sponsorButton.style.borderRadius = '3px';
-		sponsorButton.style.display = 'inline-block';
 		
 		// Show China mainland donation channel if Chinese interface
 		if (getActualLanguage() === 'zh') {
@@ -1443,14 +1481,12 @@ class GitSyncSettingTab extends PluginSettingTab {
 				text: 'https://www.xheldon.com/donate/',
 				href: 'https://www.xheldon.com/donate/'
 			});
-			chinaLink.style.color = 'var(--text-accent)';
-			chinaLink.style.textDecoration = 'none';
 		}
 	}
 
 	private isVaultEmpty(): boolean {
 		const files = this.app.vault.getFiles();
-		return files.filter(file => !file.path.startsWith('.obsidian')).length === 0;
+		return files.filter(file => !file.path.startsWith(this.app.vault.configDir)).length === 0;
 	}
 
 	private updatePathInfo(el: HTMLElement, value: string) {
