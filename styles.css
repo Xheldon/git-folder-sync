@@ -334,3 +334,43 @@
   padding-left: 8px;
   border-left: 3px solid var(--text-accent);
 }
+
+/* Status bar display states */
+.git-sync-status-bar.hidden {
+  display: none;
+}
+
+.git-sync-status-bar.visible {
+  display: flex;
+}
+
+/* Status text color states */
+.git-sync-status-text.modified {
+  color: var(--color-orange);
+}
+
+.git-sync-status-text.synced {
+  color: var(--color-green);
+}
+
+.git-sync-status-text.not-published {
+  color: var(--text-muted);
+}
+
+.git-sync-status-text.normal {
+  color: var(--text-normal);
+}
+
+/* Sponsor button styling */
+.git-sync-sponsor-button {
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+/* China sponsor link styling */
+.git-sync-china-sponsor a {
+  color: var(--text-accent);
+  text-decoration: none;
+}

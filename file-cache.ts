@@ -86,7 +86,7 @@ export class FileCacheService implements FileCacheManager {
   clearCache(): void {
     this.cache.clear();
     localStorage.removeItem(this.CACHE_KEY);
-    console.log('All file caches cleared');
+    // console.log('All file caches cleared');
   }
 
   /**

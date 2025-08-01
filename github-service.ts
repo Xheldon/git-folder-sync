@@ -172,7 +172,7 @@ export class GitHubService {
   }
 
   public parseRepositoryUrl(url: string): { owner: string; repo: string; path: string } | null {
-    console.log('Parsing repository URL:', url);
+    // console.log('Parsing repository URL:', url);
     
     if (!url) {
       console.error('URL is empty');
@@ -181,7 +181,7 @@ export class GitHubService {
 
     // Remove leading and trailing spaces
     const cleanUrl = url.trim();
-    console.log('Cleaned URL:', cleanUrl);
+    // console.log('Cleaned URL:', cleanUrl);
 
     // Support two formats:
     // 1. https://github.com/username/repo/path (standard GitHub URL)
@@ -197,7 +197,7 @@ export class GitHubService {
         repo: match[2],
         path: match[3] || '',
       };
-              console.log('Parse result (standard GitHub URL):', result);
+              // console.log('Parse result (standard GitHub URL):', result);
       return result;
     }
     
@@ -209,7 +209,7 @@ export class GitHubService {
         repo: match[2],
         path: match[3] || '',
       };
-              console.log('Parse result (short format):', result);
+              // console.log('Parse result (short format):', result);
       return result;
     }
 
@@ -219,6 +219,63 @@ export class GitHubService {
       console.error('2. username/repo/path (short format)');
     
     return null;
+  }
+
+  /**
+   * Test GitHub token and repository access
+   */
+  async testConnection(repositoryUrl: string): Promise<SyncResult & { repoInfo?: { owner: string; repo: string; path: string } }> {
+    // First test URL parsing
+    const repoInfo = this.parseRepositoryUrl(repositoryUrl);
+    if (!repoInfo) {
+      return { success: false, message: t('github.api.invalid.url.format') };
+    }
+
+    // Check rate limit
+    if (!(await this.beforeApiCall())) {
+      return { success: false, message: t('github.api.rate.limit.exceeded.short') };
+    }
+
+    try {
+      // Test token validity by getting user info
+      const userResponse = await this.octokit.rest.users.getAuthenticated();
+      
+      // Test repository access
+      const repoResponse = await this.octokit.rest.repos.get({
+        owner: repoInfo.owner,
+        repo: repoInfo.repo,
+      });
+
+      // Test if we can access the specific path (if provided)
+      if (repoInfo.path) {
+        try {
+          await this.octokit.rest.repos.getContent({
+            owner: repoInfo.owner,
+            repo: repoInfo.repo,
+            path: repoInfo.path,
+          });
+        } catch (error) {
+          // Path doesn't exist, but that's okay - we can create it
+          if (error.status !== 404) {
+            throw error;
+          }
+        }
+      }
+
+      return { 
+        success: true, 
+        message: t('github.api.connection.test.success', { 
+          user: userResponse.data.login,
+          repo: `${repoInfo.owner}/${repoInfo.repo}`,
+          permissions: repoResponse.data.permissions?.push ? 'read/write' : 'read-only'
+        }),
+        repoInfo 
+      };
+    } catch (error) {
+      console.error('GitHub connection test failed:', error);
+      const errorInfo = this.handleGitHubError(error);
+      return { success: false, message: errorInfo.message };
+    }
   }
 
   async uploadFile(repositoryUrl: string, filePath: string, content: string): Promise<SyncResult> {

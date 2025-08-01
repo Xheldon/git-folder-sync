@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2024-12-19
+
+### Fixed
+- Fixed hardcoded `.obsidian` paths to use `app.vault.configDir` for better compatibility
+- Moved inline JavaScript styles to CSS files for better theme adaptability
+- Reduced console.log pollution by implementing debug-only logging
+- Improved type safety by removing `any` type casting where possible
+- Fixed GitHub settings not saving to data.json
+- Fixed debugLog recursive call issue causing test button to be unresponsive
+
+### Added
+- Enhanced test URL button to validate both URL format and GitHub token
+- Comprehensive GitHub connection testing with user info and permissions
+- Loading states and detailed feedback for better user experience
+
+### Changed
+- Enhanced code quality to meet Obsidian community plugin standards
+- Better CSS class management for status indicators and UI elements
+
+## [1.0.4] - 2024-12-19
+
+### Fixed
+- Fixed hardcoded `.obsidian` paths to use `app.vault.configDir` for better compatibility
+- Moved inline JavaScript styles to CSS files for better theme adaptability
+- Reduced console.log pollution by implementing debug-only logging
+- Improved type safety by removing `any` type casting where possible
+
+### Changed
+- Enhanced code quality to meet Obsidian community plugin standards
+- Better CSS class management for status indicators and UI elements
+
+## [1.0.3] - 2024-12-19
+
+### Fixed
+- Fixed GitHub Actions permissions for automatic release creation
+
+### Changed
+- Bumped version for testing the fixed workflow
+
+## [1.0.2] - 2024-12-19
+
+### Changed
+- Clean release test version
+
 ## [1.0.1] - 2024-12-19
 
 ### Changed

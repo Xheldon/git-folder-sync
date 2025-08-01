@@ -147,13 +147,7 @@ export class CosService {
         // Generate signature for Tencent COS
         const signature = await this.generateTencentSignature('PUT', remotePath, date, file.type);
         
-        console.log('Tencent COS upload debug:', {
-            url,
-            remotePath,
-            signature: signature.substring(0, 50) + '...',
-            fileSize: file.size,
-            fileType: file.type
-        });
+        // Debug logging removed for production
         
         // Convert File to ArrayBuffer for requestUrl
         const fileBuffer = await file.arrayBuffer();
