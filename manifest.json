@@ -1,9 +1,9 @@
 {
     "id": "git-folder-sync",
     "name": "Git Folder Sync",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "minAppVersion": "0.15.0",
-    "description": "Synchronize files in your Obsidian Vault with a specified directory in the designated GitHub repository (rather than the entire repository); send your images to cloud storage services.",
+    "description": "Synchronize files in your Vault with a specified directory in the designated GitHub repository (rather than the entire repository); send your images to cloud storage services.",
     "author": "Xheldon",
     "authorUrl": "https://github.com/Xheldon",
     "fundingUrl": "https://paypal.me/xheldoncao",
